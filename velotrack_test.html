@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VeloTrack · Connection Test</title>
+<style>
+  body { font-family: monospace; background: #07090e; color: #c8d8f0; padding: 30px; font-size: 14px; }
+  h2 { color: #00e5ff; letter-spacing: 3px; margin-bottom: 20px; font-family: sans-serif; }
+  .box { background: #0d1118; border: 1px solid #1c2b42; border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+  .label { color: #4a6080; font-size: 11px; letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
+  .value { font-size: 16px; margin-bottom: 4px; }
+  .ok  { color: #00e096; }
+  .bad { color: #ff3355; }
+  .warn { color: #ff6b00; }
+  button { background: #00e5ff; color: #07090e; border: none; padding: 10px 24px; font-family: monospace; font-size: 13px; letter-spacing: 2px; cursor: pointer; border-radius: 3px; margin-right: 8px; margin-top: 8px; }
+  button:hover { background: #33eaff; }
+  pre { background: #050709; border: 1px solid #1c2b42; padding: 12px; border-radius: 4px; font-size: 11px; color: #7a98c0; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+  .log-line { padding: 3px 0; border-bottom: 1px solid #0d1118; }
+  .log-line.recv { color: #00e096; }
+  .log-line.sent { color: #00e5ff; }
+  .log-line.err  { color: #ff3355; }
+  .log-line.info { color: #ff6b00; }
+</style>
+</head>
+<body>
+<h2>VELOTRACK · CONNECTION TEST</h2>
+
+<div class="box">
+  <div class="label">Page Origin (must match between race manager + overlay)</div>
+  <div class="value" id="origin"></div>
+  <div class="label" style="margin-top:10px;">localStorage Available</div>
+  <div class="value" id="ls-avail"></div>
+  <div class="label" style="margin-top:10px;">Storage Events (cross-tab sync)</div>
+  <div class="value" id="storage-events">Listening… open this page in a second tab/window to test</div>
+</div>
+
+<div class="box">
+  <div class="label">Current velotrack_overlay value in localStorage</div>
+  <pre id="current-val">checking...</pre>
+  <div class="label" style="margin-top:10px;">Last updated</div>
+  <div class="value" id="last-updated">—</div>
+</div>
+
+<div class="box">
+  <div class="label">Manual Test — Write a test signal</div>
+  <p style="color:#4a6080;font-size:12px;margin-bottom:10px;">
+    Open this page in BOTH Chrome and the OBS Browser Source at the same URL.<br>
+    Click "Send Test" in Chrome — if OBS receives it, you'll see it update below.
+  </p>
+  <button onclick="sendTest()">SEND TEST SIGNAL</button>
+  <button onclick="clearStorage()">CLEAR</button>
+  <button onclick="readCurrent()">REFRESH READ</button>
+</div>
+
+<div class="box">
+  <div class="label">Live Event Log</div>
+  <div id="log" style="max-height:300px;overflow-y:auto;"></div>
+</div>
+
+<script>
+const originEl      = document.getElementById('origin');
+const lsAvailEl     = document.getElementById('ls-avail');
+const storageEvEl   = document.getElementById('storage-events');
+const currentValEl  = document.getElementById('current-val');
+const lastUpdEl     = document.getElementById('last-updated');
+const logEl         = document.getElementById('log');
+
+let storageEventCount = 0;
+
+// Show origin
+originEl.textContent = window.location.origin + window.location.pathname;
+originEl.className = 'value ' + (window.location.protocol === 'file:' ? 'warn' : 'ok');
+if (window.location.protocol === 'file:') {
+  originEl.textContent += '  ⚠️  FILE:// protocol — storage events may NOT fire cross-tab in OBS!';
+}
+
+// Check localStorage
+try {
+  localStorage.setItem('_velotest', '1');
+  localStorage.removeItem('_velotest');
+  lsAvailEl.innerHTML = '<span class="ok">✓ localStorage is available</span>';
+} catch(e) {
+  lsAvailEl.innerHTML = `<span class="bad">✗ localStorage NOT available: ${e.message}</span>`;
+}
+
+// Listen for storage events
+window.addEventListener('storage', (e) => {
+  storageEventCount++;
+  storageEvEl.innerHTML = `<span class="ok">✓ Storage event received! (${storageEventCount} total)</span>`;
+  if (e.key === 'velotrack_overlay') {
+    addLog(`Storage event: velotrack_overlay updated`, 'recv');
+    readCurrent();
+  } else if (e.key) {
+    addLog(`Storage event: key="${e.key}"`, 'info');
+  }
+});
+
+function readCurrent() {
+  try {
+    const raw = localStorage.getItem('velotrack_overlay');
+    if (!raw) {
+      currentValEl.textContent = '(empty — no data written yet)';
+      lastUpdEl.innerHTML = '<span class="warn">No data yet</span>';
+    } else {
+      const parsed = JSON.parse(raw);
+      currentValEl.textContent = JSON.stringify(parsed, null, 2);
+      const age = Math.round((Date.now() - parsed.ts) / 1000);
+      lastUpdEl.innerHTML = `<span class="${age < 10 ? 'ok' : age < 60 ? 'warn' : 'bad'}">${age}s ago (ts: ${parsed.ts}) · view: ${parsed.view}</span>`;
+      addLog(`Read: view="${parsed.view}", age=${age}s`, 'info');
+    }
+  } catch(e) {
+    currentValEl.textContent = 'Error reading: ' + e.message;
+    addLog('Read error: ' + e.message, 'err');
+  }
+}
+
+function sendTest() {
+  try {
+    const payload = {
+      view: 'race_active',
+      ts: Date.now(),
+      data: {
+        nightTitle: 'TEST NIGHT',
+        eventNum: 1,
+        totalEvents: 5,
+        raceTitle: 'Junior A – Chase Race',
+        raceType: 'chase',
+        lapsLeft: 42,
+        riders: [
+          { name: 'Rider One',   color: '#00e5ff' },
+          { name: 'Rider Two',   color: '#ff6b00' },
+          { name: 'Rider Three', color: '#39ff14' },
+          { name: 'Rider Four',  color: '#ff3355' },
+        ],
+        nextRaces: [{ num: 2, label: 'SemiPro B – Elimination', type: 'elimination' }],
+      }
+    };
+    localStorage.setItem('velotrack_overlay', JSON.stringify(payload));
+    addLog('Sent test signal (chase race, 42 laps)', 'sent');
+    readCurrent();
+  } catch(e) {
+    addLog('Send error: ' + e.message, 'err');
+  }
+}
+
+function clearStorage() {
+  localStorage.removeItem('velotrack_overlay');
+  currentValEl.textContent = '(cleared)';
+  lastUpdEl.textContent = '—';
+  addLog('Cleared velotrack_overlay', 'info');
+}
+
+function addLog(msg, type='info') {
+  const d = new Date();
+  const time = d.toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = `[${time}] ${msg}`;
+  logEl.prepend(line);
+}
+
+// Auto-read every 2s
+setInterval(readCurrent, 2000);
+readCurrent();
+addLog('Test page loaded', 'info');
+</script>
+</body>
+</html>
