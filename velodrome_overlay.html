@@ -719,6 +719,13 @@ html, body {
 <!-- Idle state -->
 <div class="panel" id="panel-idle" style="display:block;">
   <div class="idle-box">WAITING FOR RACE DATA…</div>
+  <div id="debug-box" style="margin-top:20px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#4a6080;text-align:left;max-width:900px;line-height:1.8;">
+    <div id="dbg-bin"></div>
+    <div id="dbg-key"></div>
+    <div id="dbg-status"></div>
+    <div id="dbg-last"></div>
+    <div id="dbg-ts"></div>
+  </div>
 </div>
 
 <!-- Live race info + lap counter (bottom-left) -->
@@ -825,24 +832,46 @@ const JSONBIN_BIN_ID  = urlParams.get('bin')  || '';
 const JSONBIN_API_KEY = urlParams.get('key')  || '';
 
 async function poll() {
+  const dbgBin    = document.getElementById('dbg-bin');
+  const dbgKey    = document.getElementById('dbg-key');
+  const dbgStatus = document.getElementById('dbg-status');
+  const dbgLast   = document.getElementById('dbg-last');
+  const dbgTs     = document.getElementById('dbg-ts');
+
   if (!JSONBIN_BIN_ID || !JSONBIN_API_KEY) {
     document.querySelector('#panel-idle .idle-box').innerHTML =
       'OBS URL NEEDS<br>?bin=BIN_ID&amp;key=API_KEY';
+    if(dbgBin) dbgBin.textContent = 'BIN: (not set)';
+    if(dbgKey) dbgKey.textContent = 'KEY: (not set)';
     return;
   }
+
+  if(dbgBin) dbgBin.textContent = `BIN: ${JSONBIN_BIN_ID}`;
+  if(dbgKey) dbgKey.textContent = `KEY: ${JSONBIN_API_KEY.substring(0,12)}... (${JSONBIN_API_KEY.length} chars)`;
+
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+    if(dbgStatus) dbgStatus.textContent = `FETCHING... ${new Date().toLocaleTimeString()}`;
+    const url = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`;
+    const res = await fetch(url, {
       headers: { 'X-Master-Key': JSONBIN_API_KEY, 'X-Bin-Meta': 'false' }
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if(dbgStatus) dbgStatus.textContent = `HTTP ${res.status} · ${new Date().toLocaleTimeString()}`;
+    if (!res.ok) {
+      const txt = await res.text();
+      if(dbgLast) dbgLast.textContent = `ERROR BODY: ${txt.substring(0,120)}`;
+      throw new Error(`HTTP ${res.status}`);
+    }
     const payload = await res.json();
+    if(dbgLast) dbgLast.textContent = `PAYLOAD VIEW: ${payload?.view || '(none)'} · TS: ${payload?.ts || '(none)'}`;
     pollFailCount = 0;
     if (payload && payload.ts !== lastTs) {
       lastTs = payload.ts;
+      if(dbgTs) dbgTs.textContent = `LAST UPDATE: ${new Date(payload.ts).toLocaleTimeString()}`;
       handleState(payload);
     }
   } catch(e) {
     pollFailCount++;
+    if(dbgStatus) dbgStatus.textContent = `CATCH ERROR: ${e.message}`;
     if (pollFailCount >= 5) {
       document.querySelector('#panel-idle .idle-box').textContent = 'CONNECTION ERROR';
       showPanels('panel-idle');
