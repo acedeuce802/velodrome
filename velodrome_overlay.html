@@ -798,7 +798,8 @@ html, body {
 <script>
 // ═══════════════════════════════════════════════════
 // OVERLAY CONTROLLER
-// Reads from localStorage key 'velotrack_overlay'
+// Polls JSONBin.io for state written by the race manager.
+// Add ?bin=BIN_ID&key=API_KEY to the OBS browser source URL.
 // ═══════════════════════════════════════════════════
 
 const TYPE_LABELS = {
@@ -815,8 +816,49 @@ const TYPE_BADGE = {
 };
 
 const ALL_PANELS = ['panel-idle','panel-race','panel-results','panel-schedule','panel-summary','panel-event-ticker'];
-let currentView = 'idle';
 let lastTs = 0;
+let pollFailCount = 0;
+
+// Read bin/key from URL: ?bin=BIN_ID&key=API_KEY
+const urlParams = new URLSearchParams(window.location.search);
+const JSONBIN_BIN_ID  = urlParams.get('bin')  || '';
+const JSONBIN_API_KEY = urlParams.get('key')  || '';
+
+async function poll() {
+  if (!JSONBIN_BIN_ID || !JSONBIN_API_KEY) {
+    document.querySelector('#panel-idle .idle-box').innerHTML =
+      'OBS URL NEEDS<br>?bin=BIN_ID&amp;key=API_KEY';
+    return;
+  }
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': JSONBIN_API_KEY, 'X-Bin-Meta': 'false' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    pollFailCount = 0;
+    if (payload && payload.ts !== lastTs) {
+      lastTs = payload.ts;
+      handleState(payload);
+    }
+  } catch(e) {
+    pollFailCount++;
+    if (pollFailCount >= 5) {
+      document.querySelector('#panel-idle .idle-box').textContent = 'CONNECTION ERROR';
+      showPanels('panel-idle');
+    }
+  }
+}
+
+function handleState(payload) {
+  if (!payload) return;
+  const { view, data } = payload;
+  if (view === 'race_active')        renderRaceActive(data);
+  else if (view === 'race_results')  renderResults(data);
+  else if (view === 'schedule_next') renderSchedule(data);
+  else if (view === 'summary')       renderSummary(data);
+  else                               renderIdle();
+}
 
 function showPanels(...ids) {
   ALL_PANELS.forEach(id => {
@@ -1032,26 +1074,8 @@ function triggerSprintFlash(lap) {
   setTimeout(()=>el.classList.remove('show'), 3000);
 }
 
-// ── POLL LOCALSTORAGE ──
-function poll() {
-  try {
-    const raw = localStorage.getItem('velotrack_overlay');
-    if (raw) {
-      const payload = JSON.parse(raw);
-      handleState(payload);
-    }
-  } catch(e) {}
-}
-
-// Listen for storage events (cross-tab real-time)
-window.addEventListener('storage', (e) => {
-  if (e.key === 'velotrack_overlay' && e.newValue) {
-    try { handleState(JSON.parse(e.newValue)); } catch(e) {}
-  }
-});
-
-// Also poll as fallback (OBS browser source may need this)
-setInterval(poll, 500);
+// ── POLL JSONBIN every 1 second ──
+setInterval(poll, 1000);
 poll(); // immediate first read
 
 function esc(s) {

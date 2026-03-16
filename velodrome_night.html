@@ -331,6 +331,40 @@ label{font-size:0.78rem;color:var(--text-dim);letter-spacing:2px;text-transform:
     </div>
   </div>
 
+  <!-- JSONBin OBS Config -->
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span id="obs-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-dim);display:inline-block;flex-shrink:0;"></span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--text-dim);" id="obs-label">OBS OVERLAY · NOT CONFIGURED</span>
+    </div>
+
+    <div id="jsonbin-config-panel">
+      <div style="font-size:0.78rem;color:var(--text-mid);line-height:1.7;margin-bottom:12px;">
+        To sync with OBS, you need a free <b style="color:var(--text)">JSONBin.io</b> account as a relay:<br>
+        1. Go to <b style="color:var(--accent)">jsonbin.io</b> → Sign up free → Dashboard<br>
+        2. Click <b style="color:var(--text)">Create Bin</b> → paste <code style="color:var(--accent2)">{}</code> as content → Save<br>
+        3. Copy the <b style="color:var(--text)">Bin ID</b> from the URL (the long string after /b/)<br>
+        4. Go to <b style="color:var(--text)">API Keys</b> in the sidebar → copy your <b style="color:var(--text)">Master Key</b>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <label>Bin ID</label>
+          <input type="text" id="cfg-bin-id" placeholder="6642f3abc123..." style="width:220px;font-family:'Share Tech Mono',monospace;font-size:0.82rem;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <label>Master Key</label>
+          <input type="password" id="cfg-api-key" placeholder="$2a$10$..." style="width:260px;font-family:'Share Tech Mono',monospace;font-size:0.82rem;">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveJsonBinConfig()">SAVE & TEST</button>
+      </div>
+    </div>
+
+    <div id="jsonbin-configured" style="display:none;align-items:center;gap:12px;">
+      <span style="color:var(--success);font-size:0.85rem;letter-spacing:1px;">✓ JSONBin configured — OBS overlay will sync automatically</span>
+      <button class="btn btn-secondary btn-sm" onclick="resetJsonBinConfig()" style="font-size:0.7rem;">CHANGE</button>
+    </div>
+  </div>
+
   <div id="schedule-list" class="schedule-list"></div>
 
   <div class="add-race-btn-row">
@@ -1358,15 +1392,114 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // ══════════════════════════════════════════════════════
 // OBS BROADCAST SYSTEM
-// Writes state to localStorage so the overlay can read it
+// Writes state to JSONBin.io so the OBS overlay can poll it
 // ══════════════════════════════════════════════════════
+
+// ── CONFIGURATION ──
+// Fill these in after creating a free JSONBin.io account.
+// Instructions shown in the UI below.
+let JSONBIN_BIN_ID  = '';   // e.g. '6642f3abc123...'
+let JSONBIN_API_KEY = '';   // e.g. '$2a$10$...'
+
+let broadcastPending = false;
+let broadcastQueue   = null;
+
 function broadcast(view, data) {
-  // view: 'race_active' | 'race_results' | 'schedule_next' | 'summary' | 'idle'
-  try {
-    const payload = { view, data, ts: Date.now() };
-    localStorage.setItem('velotrack_overlay', JSON.stringify(payload));
-  } catch(e) { /* localStorage may be unavailable in some contexts */ }
+  const payload = { view, data, ts: Date.now() };
+  // Always keep latest in localStorage as fallback
+  try { localStorage.setItem('velotrack_overlay', JSON.stringify(payload)); } catch(e){}
+
+  if (!JSONBIN_BIN_ID || !JSONBIN_API_KEY) return; // not configured yet
+
+  // Debounce: if a write is already in flight, queue the latest and skip
+  broadcastQueue = payload;
+  if (broadcastPending) return;
+  broadcastPending = true;
+
+  (async () => {
+    while (broadcastQueue) {
+      const toSend = broadcastQueue;
+      broadcastQueue = null;
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_API_KEY,
+            'X-Bin-Versioning': 'false',  // overwrite, don't version
+          },
+          body: JSON.stringify(toSend),
+        });
+        if (res.ok) {
+          obsFlash();
+        } else {
+          console.warn('JSONBin write failed:', res.status, await res.text());
+          setObsError(`Write failed: ${res.status}`);
+        }
+      } catch(e) {
+        console.warn('JSONBin fetch error:', e);
+        setObsError('Network error');
+      }
+    }
+    broadcastPending = false;
+  })();
 }
+
+function setObsError(msg) {
+  const dot = document.getElementById('obs-dot');
+  const lbl = document.getElementById('obs-label');
+  if(dot){ dot.style.background='var(--danger)'; dot.style.boxShadow='0 0 6px var(--danger)'; }
+  if(lbl){ lbl.textContent=msg; lbl.style.color='var(--danger)'; }
+}
+
+function saveJsonBinConfig() {
+  const bid = document.getElementById('cfg-bin-id').value.trim();
+  const key = document.getElementById('cfg-api-key').value.trim();
+  if (!bid || !key) { alert('Enter both Bin ID and API Key'); return; }
+  JSONBIN_BIN_ID  = bid;
+  JSONBIN_API_KEY = key;
+  try {
+    localStorage.setItem('velotrack_jsonbin', JSON.stringify({bid, key}));
+  } catch(e){}
+  document.getElementById('jsonbin-config-panel').style.display = 'none';
+  document.getElementById('jsonbin-configured').style.display = 'flex';
+  document.getElementById('obs-label').textContent = 'OBS READY';
+  document.getElementById('obs-dot').style.background = 'var(--accent2)';
+  document.getElementById('obs-dot').style.boxShadow = '0 0 6px var(--accent2)';
+  // Send an idle ping to confirm connection
+  broadcast('idle', {});
+}
+
+function resetJsonBinConfig() {
+  JSONBIN_BIN_ID = '';
+  JSONBIN_API_KEY = '';
+  try { localStorage.removeItem('velotrack_jsonbin'); } catch(e){}
+  document.getElementById('jsonbin-config-panel').style.display = 'block';
+  document.getElementById('jsonbin-configured').style.display = 'none';
+}
+
+// Load saved config on startup
+(function loadSavedConfig() {
+  try {
+    const saved = localStorage.getItem('velotrack_jsonbin');
+    if (saved) {
+      const {bid, key} = JSON.parse(saved);
+      JSONBIN_BIN_ID = bid;
+      JSONBIN_API_KEY = key;
+      // Pre-fill fields if they exist yet (may run before DOM ready)
+      window.addEventListener('DOMContentLoaded', () => {
+        const bidEl = document.getElementById('cfg-bin-id');
+        const keyEl = document.getElementById('cfg-api-key');
+        if (bidEl) bidEl.value = bid;
+        if (keyEl) keyEl.value = key;
+        if (bid && key) {
+          document.getElementById('jsonbin-config-panel').style.display = 'none';
+          document.getElementById('jsonbin-configured').style.display = 'flex';
+        }
+      });
+    }
+  } catch(e){}
+})();
 
 // Patch key state-change functions to auto-broadcast
 const _origShowResults = showResults;
