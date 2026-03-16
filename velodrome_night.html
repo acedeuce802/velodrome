@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeloTrack · Race Night</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090e;
+  --surface: #0d1118;
+  --surface2: #131b29;
+  --surface3: #192234;
+  --border: #1c2b42;
+  --border2: #243550;
+  --accent: #00e5ff;
+  --accent2: #ff6b00;
+  --accent3: #a855f7;
+  --text: #c8d8f0;
+  --text-dim: #4a6080;
+  --text-mid: #7a98c0;
+  --gold: #ffd700;
+  --silver: #b8c8d8;
+  --bronze: #cd7f32;
+  --danger: #ff3355;
+  --success: #00e096;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow-x:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(-12deg,transparent,transparent 80px,rgba(0,229,255,0.012) 80px,rgba(0,229,255,0.012) 81px);pointer-events:none;z-index:0;}
+
+/* ── LAYOUT ── */
+.app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:16px 16px 80px;}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 0 18px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,229,255,0.4);line-height:1;}
+.logo span{color:var(--accent2);}
+.night-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:3px;color:var(--text-dim);text-align:right;}
+.night-subtitle{font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:2px;}
+
+/* ── TYPOGRAPHY ── */
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:4px;color:var(--accent);margin-bottom:6px;}
+.section-sub{font-size:0.75rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:20px;}
+
+/* ── BUTTONS ── */
+.btn{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;border:none;border-radius:3px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn-lg{font-size:1.1rem;padding:11px 28px;}
+.btn-md{font-size:0.95rem;padding:8px 20px;}
+.btn-sm{font-size:0.82rem;padding:5px 14px;}
+.btn-primary{background:var(--accent);color:var(--bg);box-shadow:0 0 16px rgba(0,229,255,0.25);}
+.btn-primary:hover{background:#33eaff;box-shadow:0 0 28px rgba(0,229,255,0.45);transform:translateY(-1px);}
+.btn-secondary{background:transparent;color:var(--text-mid);border:1px solid var(--border2);}
+.btn-secondary:hover{border-color:var(--text-mid);color:var(--text);}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+.btn-danger:hover{background:rgba(255,51,85,.08);}
+.btn-success{background:var(--success);color:var(--bg);}
+.btn-success:hover{background:#33ffb8;}
+.btn-orange{background:var(--accent2);color:#fff;}
+.btn-orange:hover{background:#ff8533;}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important;box-shadow:none!important;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:20px;}
+.card-sm{padding:14px;}
+
+/* ── FORM ELEMENTS ── */
+input[type=text],input[type=number],select,textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;padding:7px 10px;border-radius:3px;transition:border-color .2s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6080'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
+label{font-size:0.78rem;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:4px;}
+
+/* ══════════════════════════════════════
+   SCHEDULE BUILDER
+══════════════════════════════════════ */
+#page-schedule{display:block;}
+
+.schedule-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+
+.race-entry{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;transition:border-color .2s;}
+.race-entry:hover{border-color:var(--border2);}
+
+.race-entry-header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.race-num{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--text-dim);width:28px;flex-shrink:0;}
+.race-type-badge{font-family:'Bebas Neue',sans-serif;font-size:0.85rem;letter-spacing:2px;padding:3px 10px;border-radius:2px;flex-shrink:0;}
+.badge-chase{background:rgba(0,229,255,.12);color:var(--accent);border:1px solid rgba(0,229,255,.2);}
+.badge-elimination{background:rgba(255,51,85,.12);color:var(--danger);border:1px solid rgba(255,51,85,.2);}
+.badge-madison{background:rgba(168,85,247,.12);color:var(--accent3);border:1px solid rgba(168,85,247,.2);}
+.badge-unknown{background:rgba(255,107,0,.12);color:var(--accent2);border:1px solid rgba(255,107,0,.2);}
+.race-entry-title{flex:1;font-size:1rem;font-weight:700;letter-spacing:1px;}
+.race-entry-body{padding:16px;display:none;}
+.race-entry.open .race-entry-body{display:block;}
+.race-entry-body-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px;}
+
+.riders-section{margin-top:10px;}
+.riders-section h4{font-size:0.72rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;}
+.rider-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.rider-row{display:flex;gap:8px;align-items:center;}
+.rider-row input{flex:1;}
+.rider-row .color-dot-pick{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;}
+.rider-row .color-dot-pick input[type=color]{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;}
+.rider-row .color-dot-bg{position:absolute;inset:0;border-radius:50%;}
+.rider-row .btn-remove-rider{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;padding:0 4px;line-height:1;transition:color .15s;flex-shrink:0;}
+.rider-row .btn-remove-rider:hover{color:var(--danger);}
+
+.teams-section{margin-top:14px;}
+.teams-section h4{font-size:0.72rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;}
+.team-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+.team-row input[type=text]{flex:1;}
+
+/* Points config inline */
+.pts-inline{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.pts-inline-field{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.pts-inline-field label{font-size:0.6rem;letter-spacing:2px;margin:0;}
+.pts-inline-field input{width:52px;text-align:center;font-family:'Share Tech Mono',monospace;}
+
+.add-race-btn-row{display:flex;justify-content:center;padding:16px 0;}
+
+/* ══════════════════════════════════════
+   RACE NIGHT - TOP BAR
+══════════════════════════════════════ */
+#page-race{display:none;}
+#page-results{display:none;}
+
+.race-night-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.race-progress-strip{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;}
+.rp-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);transition:background .3s;}
+.rp-dot.done{background:var(--success);}
+.rp-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+
+.current-race-info{margin-bottom:18px;}
+.cr-event-num{font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:3px;margin-bottom:4px;}
+.cr-title{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:4px;line-height:1;margin-bottom:2px;}
+.cr-sub{font-size:0.82rem;color:var(--text-dim);letter-spacing:2px;}
+
+/* ══════════════════════════════════════
+   CHASE RACE
+══════════════════════════════════════ */
+.chase-layout{display:grid;grid-template-columns:1fr 280px;gap:18px;}
+
+.lap-counter-big{text-align:center;padding:28px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;margin-bottom:12px;}
+.lap-num-display{font-family:'Bebas Neue',sans-serif;font-size:7rem;line-height:1;color:#fff;text-shadow:0 0 30px rgba(255,255,255,.2);transition:color .3s,text-shadow .3s;}
+.lap-num-display.warn{color:var(--accent2);text-shadow:0 0 30px rgba(255,107,0,.5);}
+.lap-num-display.final{color:var(--gold);text-shadow:0 0 40px rgba(255,215,0,.6);}
+.lap-count-label{font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:4px;color:var(--text-dim);margin-top:4px;}
+
+.advance-lap-btn{width:100%;padding:16px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:10px;}
+.advance-lap-btn:hover{background:rgba(0,229,255,.04);border-color:var(--accent);box-shadow:0 0 16px rgba(0,229,255,.1);}
+.advance-lap-btn:active{transform:translateY(1px);}
+.advance-lap-btn .key-cap{background:var(--surface2);border:1px solid var(--border);border-bottom:3px solid var(--border);border-radius:4px;padding:5px 18px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;letter-spacing:2px;color:var(--accent);transition:border-bottom-width .1s,transform .1s;}
+.advance-lap-btn:active .key-cap{border-bottom-width:1px;transform:translateY(1px);}
+.advance-lap-btn p{font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;}
+
+/* ══════════════════════════════════════
+   ELIMINATION RACE
+══════════════════════════════════════ */
+.elimination-layout{display:grid;grid-template-columns:1fr 280px;gap:18px;}
+.elimination-info{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:14px;text-align:center;padding:10px;background:rgba(255,51,85,.06);border:1px solid rgba(255,51,85,.15);border-radius:3px;}
+.elimination-info b{color:var(--danger);}
+
+.riders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
+.rider-btn{padding:14px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .15s;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase;position:relative;}
+.rider-btn::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--rider-color);border-radius:4px 4px 0 0;}
+.rider-btn:hover:not(.eliminated):not(.winner){border-color:var(--danger);background:rgba(255,51,85,.06);}
+.rider-btn.eliminated{opacity:.3;text-decoration:line-through;cursor:default;background:var(--bg);}
+.rider-btn.winner{border-color:var(--gold);background:rgba(255,215,0,.06);color:var(--gold);cursor:default;}
+
+.elim-order-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
+.elim-order-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:3px;font-size:0.82rem;font-weight:600;letter-spacing:1px;}
+.elim-badge{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* ══════════════════════════════════════
+   MADISON RACE (embedded)
+══════════════════════════════════════ */
+.madison-layout{display:grid;grid-template-columns:1fr 300px;gap:18px;}
+.lb-header{display:grid;grid-template-columns:36px 1fr 90px 90px 90px;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border);font-size:0.65rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;}
+.lb-row{display:grid;grid-template-columns:36px 1fr 90px 90px 90px;padding:0 14px;align-items:center;border-bottom:1px solid rgba(30,45,74,.5);min-height:58px;transition:background .2s;position:relative;overflow:hidden;}
+.lb-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--team-color,transparent);}
+.lb-row:last-child{border-bottom:none;}
+.lb-pos{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--text-dim);}
+.lb-pos.p1{color:var(--gold);}
+.lb-pos.p2{color:var(--silver);}
+.lb-pos.p3{color:var(--bronze);}
+.lb-team{display:flex;align-items:center;gap:8px;}
+.lb-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.lb-name{font-size:0.95rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.lb-stat{text-align:right;}
+.lb-stat .val{font-family:'Share Tech Mono',monospace;font-size:1rem;}
+.lb-stat.pts .val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);}
+.lb-stat .lbl{font-size:0.6rem;color:var(--text-dim);letter-spacing:2px;}
+@keyframes lapFlash{0%{background:rgba(0,229,255,.1);}100%{background:transparent;}}
+.lb-row.flash{animation:lapFlash .4s ease;}
+
+/* sprint history */
+.sprint-hist-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.75rem;}
+.sprint-hist-item:last-child{border-bottom:none;}
+.sh-lap{font-family:'Share Tech Mono',monospace;color:var(--accent2);font-size:0.7rem;}
+.sh-dots{display:flex;gap:3px;}
+.sh-dot{width:9px;height:9px;border-radius:50%;}
+
+/* ══════════════════════════════════════
+   UNKNOWN DISTANCE
+══════════════════════════════════════ */
+.unknown-layout{display:grid;grid-template-columns:1fr 280px;gap:18px;}
+.lap-count-up{font-family:'Bebas Neue',sans-serif;font-size:7rem;line-height:1;color:var(--accent2);text-shadow:0 0 30px rgba(255,107,0,.4);text-align:center;}
+.lap-count-up-label{font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:4px;color:var(--text-dim);text-align:center;margin-top:4px;}
+
+/* ══════════════════════════════════════
+   FINISH ORDER MODAL
+══════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.hidden{display:none;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes slideUp{from{transform:translateY(18px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;width:540px;max-width:96vw;animation:slideUp .22s ease;position:relative;max-height:90vh;overflow-y:auto;}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));}
+.modal h2{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:3px;color:var(--accent);margin-bottom:4px;}
+.modal-sub{font-size:0.75rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:16px;}
+.finish-area{display:flex;gap:12px;}
+.finish-btns{flex:1;}
+.finish-btns h4{font-size:0.65rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;}
+.finish-result{width:190px;flex-shrink:0;}
+.finish-result h4{font-size:0.65rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;}
+.f-btn{display:flex;align-items:center;gap:8px;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:9px 12px;margin-bottom:6px;cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase;text-align:left;}
+.f-btn:hover:not(:disabled){border-color:var(--accent);background:rgba(0,229,255,.04);transform:translateX(2px);}
+.f-btn:disabled{opacity:.3;cursor:not-allowed;}
+.f-btn .fdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.result-slot{display:flex;align-items:center;gap:7px;padding:7px 9px;margin-bottom:5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;min-height:38px;font-size:0.82rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.result-slot.filled{border-color:rgba(0,229,255,.25);}
+.result-slot .rs-pos{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--text-dim);width:26px;flex-shrink:0;}
+.result-slot.p1 .rs-pos{color:var(--gold);}
+.result-slot.p2 .rs-pos{color:var(--silver);}
+.result-slot.p3 .rs-pos{color:var(--bronze);}
+.result-slot .rs-dot{width:9px;height:9px;border-radius:50%;display:none;flex-shrink:0;}
+.result-slot .rs-pts{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--accent);}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
+
+/* ══════════════════════════════════════
+   RESULTS SCREEN (per-race)
+══════════════════════════════════════ */
+.results-podium{display:flex;gap:12px;justify-content:center;margin-bottom:24px;}
+.podium-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px 20px;text-align:center;min-width:130px;}
+.podium-card.p1{border-color:rgba(255,215,0,.3);background:rgba(255,215,0,.04);}
+.podium-card.p2{border-color:rgba(184,200,216,.2);}
+.podium-card.p3{border-color:rgba(205,127,50,.2);}
+.podium-pos{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--text-dim);}
+.podium-card.p1 .podium-pos{color:var(--gold);}
+.podium-card.p2 .podium-pos{color:var(--silver);}
+.podium-card.p3 .podium-pos{color:var(--bronze);}
+.podium-name{font-size:1rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.podium-pts{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--accent);}
+
+.results-table{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:20px;}
+.rt-hdr{display:grid;grid-template-columns:50px 1fr 120px;padding:9px 16px;background:var(--bg);border-bottom:1px solid var(--border);font-size:0.65rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;}
+.rt-row{display:grid;grid-template-columns:50px 1fr 120px;padding:12px 16px;align-items:center;border-bottom:1px solid rgba(30,45,74,.4);position:relative;overflow:hidden;}
+.rt-row:last-child{border-bottom:none;}
+.rt-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--row-color,transparent);}
+.rt-pos{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--text-dim);}
+.rt-pos.p1{color:var(--gold);}
+.rt-pos.p2{color:var(--silver);}
+.rt-pos.p3{color:var(--bronze);}
+.rt-name{display:flex;align-items:center;gap:8px;font-size:0.95rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.rt-dot{width:9px;height:9px;border-radius:50%;}
+.rt-pts{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);text-align:right;}
+
+/* ══════════════════════════════════════
+   END OF NIGHT SUMMARY
+══════════════════════════════════════ */
+#page-summary{display:none;}
+.summary-race{background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:12px;overflow:hidden;}
+.summary-race-hdr{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.summary-race-hdr:hover{background:var(--surface3);}
+.sr-num{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--text-dim);width:24px;}
+.sr-title{flex:1;font-size:0.95rem;font-weight:700;letter-spacing:1px;}
+.sr-toggle{font-size:0.7rem;color:var(--text-dim);}
+.summary-race-body{padding:12px 16px;display:none;}
+.summary-race.open .summary-race-body{display:block;}
+.sr-results{display:flex;flex-direction:column;gap:4px;}
+.sr-result-row{display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:4px 0;}
+.sr-result-pos{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--text-dim);width:28px;}
+.sr-result-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sr-result-pts{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--accent);}
+
+/* progress bar */
+.race-prog-bar{height:4px;background:var(--bg);border-radius:2px;overflow:hidden;margin-bottom:16px;}
+.race-prog-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .5s cubic-bezier(.34,1.56,.64,1);}
+
+/* madison sprint history scroll */
+.sh-scroll{max-height:160px;overflow-y:auto;}
+.sh-scroll::-webkit-scrollbar{width:3px;}
+.sh-scroll::-webkit-scrollbar-track{background:var(--bg);}
+.sh-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* drag reorder handle */
+.drag-handle{cursor:grab;color:var(--text-dim);padding:0 6px;font-size:1.1rem;}
+.drag-handle:active{cursor:grabbing;}
+.race-entry.drag-over{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+
+/* responsive */
+@media(max-width:700px){
+  .chase-layout,.elimination-layout,.madison-layout,.unknown-layout{grid-template-columns:1fr;}
+  .results-podium{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="logo">VELO<span>·</span>TRACK</div>
+  <div>
+    <div class="night-title" id="header-title">RACE NIGHT</div>
+    <div class="night-subtitle" id="header-sub">BUILD YOUR SCHEDULE</div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════
+     PAGE: SCHEDULE BUILDER
+══════════════════════════════════════ -->
+<div id="page-schedule">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="section-title">Schedule Builder</div>
+      <div class="section-sub">Add races in order · Configure each event · Then start the night</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <label>Night Title</label>
+        <input type="text" id="night-title-input" placeholder="e.g. Tuesday Night Racing" style="width:220px;">
+      </div>
+    </div>
+  </div>
+
+  <div id="schedule-list" class="schedule-list"></div>
+
+  <div class="add-race-btn-row">
+    <button class="btn btn-secondary btn-md" onclick="addRace()">＋ ADD RACE</button>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;padding-top:16px;border-top:1px solid var(--border);">
+    <button class="btn btn-primary btn-lg" onclick="startNight()">START RACE NIGHT →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: RACE RUNNING
+══════════════════════════════════════ -->
+<div id="page-race">
+  <div class="race-night-header">
+    <div>
+      <div class="cr-event-num" id="race-event-num"></div>
+      <div class="cr-title" id="race-title"></div>
+      <div class="cr-sub" id="race-sub"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div style="background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.2);border-radius:3px;padding:5px 12px;display:flex;align-items:center;gap:8px;">
+        <span id="obs-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-dim);display:inline-block;transition:all .3s;"></span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:2px;color:var(--text-dim);" id="obs-label">OBS OVERLAY</span>
+        <button class="btn btn-secondary btn-sm" onclick="broadcastCurrentRaceState();obsFlash()" style="font-size:.65rem;padding:2px 8px;">SYNC</button>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="confirmSkipRace()">SKIP RACE</button>
+    </div>
+  </div>
+
+  <div class="race-prog-bar"><div class="race-prog-fill" id="night-prog-fill"></div></div>
+  <div class="race-progress-strip" id="race-progress-strip"></div>
+
+  <!-- Chase -->
+  <div id="race-chase" style="display:none;">
+    <div class="chase-layout">
+      <div>
+        <div class="lap-counter-big">
+          <div class="lap-num-display" id="chase-lap-num">—</div>
+          <div class="lap-count-label">LAPS TO GO</div>
+        </div>
+        <button class="advance-lap-btn" id="chase-adv-btn" onclick="chaseAdvance()">
+          <div class="key-cap">SPACE</div>
+          <p>CLICK OR PRESS SPACE TO ADVANCE</p>
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="chaseUndo()" style="width:100%;margin-top:6px;font-size:.8rem;">↩ UNDO LAP</button>
+      </div>
+      <div>
+        <div class="card card-sm" style="margin-bottom:12px;">
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:10px;">RIDERS</h3>
+          <div id="chase-riders-display"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Elimination -->
+  <div id="race-elimination" style="display:none;">
+    <div class="elimination-layout">
+      <div>
+        <div class="elimination-info" id="elim-info">Eliminate one rider every <b>2 laps</b> · Click rider to eliminate</div>
+        <div class="riders-grid" id="elim-riders-grid"></div>
+      </div>
+      <div>
+        <div class="card card-sm">
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;">ELIMINATION ORDER</h3>
+          <div id="elim-order-list" class="elim-order-list"></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-success btn-md" id="elim-finish-btn" onclick="openElimFinishModal()" style="width:100%;display:none;">DECLARE WINNER →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Madison -->
+  <div id="race-madison" style="display:none;">
+    <div class="madison-layout">
+      <div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+          <div class="lb-header">
+            <div>POS</div><div>TEAM</div>
+            <div style="text-align:right">SPRINT</div>
+            <div style="text-align:right">WINS</div>
+            <div style="text-align:right">TOTAL</div>
+          </div>
+          <div id="madison-lb-body"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card card-sm">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:10px;text-align:center;margin-bottom:10px;">
+            <div class="lap-num-display" id="madison-lap-num" style="font-size:4.5rem;">—</div>
+            <div class="lap-count-label">LAPS TO GO</div>
+          </div>
+          <button class="advance-lap-btn" onclick="madisonAdvance()">
+            <div class="key-cap">SPACE</div>
+            <p>ADVANCE LAP</p>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="madisonUndo()" style="width:100%;margin-top:6px;font-size:.8rem;">↩ UNDO LAP</button>
+        </div>
+        <div class="card card-sm">
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px;">SPRINT HISTORY</h3>
+          <div class="sh-scroll"><div id="madison-sprint-hist"></div></div>
+        </div>
+        <div class="card card-sm">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--text-dim);line-height:1.8;" id="madison-status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unknown Distance -->
+  <div id="race-unknown" style="display:none;">
+    <div class="unknown-layout">
+      <div>
+        <div class="lap-counter-big">
+          <div class="lap-count-up" id="unknown-lap-num">1</div>
+          <div class="lap-count-up-label">LAP</div>
+        </div>
+        <button class="advance-lap-btn" id="unknown-adv-btn" onclick="unknownAdvance()">
+          <div class="key-cap">SPACE</div>
+          <p>CLICK OR PRESS SPACE TO ADVANCE</p>
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="unknownUndo()" style="width:100%;margin-top:6px;font-size:.8rem;">↩ UNDO LAP</button>
+      </div>
+      <div>
+        <div class="card card-sm">
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:3px;color:var(--text-dim);margin-bottom:10px;">RIDERS</h3>
+          <div id="unknown-riders-display"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: RACE RESULTS (between races)
+══════════════════════════════════════ -->
+<div id="page-results">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <div class="section-title" id="results-title">RACE RESULTS</div>
+      <div class="section-sub" id="results-sub"></div>
+    </div>
+  </div>
+  <div class="results-podium" id="results-podium"></div>
+  <div class="results-table">
+    <div class="rt-hdr"><div>POS</div><div>RIDER / TEAM</div><div style="text-align:right">POINTS</div></div>
+    <div id="results-table-body"></div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:10px;">
+    <button class="btn btn-primary btn-lg" id="next-race-btn" onclick="proceedToNextRace()">NEXT RACE →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: SUMMARY
+══════════════════════════════════════ -->
+<div id="page-summary">
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;letter-spacing:6px;color:var(--gold);text-shadow:0 0 40px rgba(255,215,0,.35);">RACE NIGHT COMPLETE</div>
+    <div style="font-size:0.8rem;color:var(--text-dim);letter-spacing:4px;" id="summary-title-sub"></div>
+  </div>
+  <div id="summary-list"></div>
+  <div style="display:flex;justify-content:center;gap:12px;margin-top:20px;">
+    <button class="btn btn-secondary btn-md" onclick="backToSchedule()">← BACK TO SCHEDULE</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FINISH ORDER MODAL
+══════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">FINISH ORDER</h2>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="finish-area">
+      <div class="finish-btns">
+        <h4>Click in finish order</h4>
+        <div id="modal-finish-btns"></div>
+      </div>
+      <div class="finish-result">
+        <h4>Result</h4>
+        <div id="modal-result-slots"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger btn-sm" onclick="modalReset()">RESET</button>
+      <button class="btn btn-primary btn-sm" id="modal-confirm" onclick="modalConfirm()" disabled>CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="modal-overlay hidden" id="confirm-overlay">
+  <div class="modal" style="max-width:360px;text-align:center;">
+    <h2 id="confirm-title">CONFIRM</h2>
+    <p style="margin-bottom:20px;color:var(--text-mid);font-size:0.9rem;letter-spacing:1px;" id="confirm-msg"></p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn btn-secondary btn-sm" onclick="closeConfirm()">CANCEL</button>
+      <button class="btn btn-danger btn-sm" id="confirm-ok-btn">CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA STRUCTURES
+// ══════════════════════════════════════════════════════
+const GROUPS = ['Young Jr','Junior A','Junior B','SemiPro A','SemiPro B','Pro','Open'];
+const RACE_TYPES = [
+  {value:'chase',       label:'Chase Race'},
+  {value:'elimination', label:'Elimination'},
+  {value:'madison',     label:'Madison'},
+  {value:'unknown',     label:'Unknown Distance'},
+];
+const TYPE_LABELS = {chase:'Chase Race',elimination:'Elimination',madison:'Madison',unknown:'Unknown Distance'};
+const TYPE_BADGE  = {chase:'badge-chase',elimination:'badge-elimination',madison:'badge-madison',unknown:'badge-unknown'};
+
+const DEFAULT_COLORS = ['#ff3d3d','#00c8ff','#39ff14','#ff9500','#ff44ff','#ffe600','#00ffb3','#a78bfa','#ff6b9d','#00bfff','#ffaa00','#44ff88'];
+
+let scheduleRaces = [];   // Array of race config objects
+let raceIdCounter = 0;
+let nightState = {
+  races: [],       // runtime copies
+  currentIdx: 0,
+  raceResults: [], // stored results per race
+};
+
+// ══════════════════════════════════════════════════════
+// SCHEDULE BUILDER
+// ══════════════════════════════════════════════════════
+function makeMadisonTeams(count=4) {
+  return Array.from({length:count},(_,i)=>({name:`Team ${i+1}`,color:DEFAULT_COLORS[i%DEFAULT_COLORS.length]}));
+}
+function makeRiders(count=8) {
+  return Array.from({length:count},(_,i)=>({name:`Rider ${i+1}`,color:DEFAULT_COLORS[i%DEFAULT_COLORS.length]}));
+}
+function defaultConfig(type) {
+  if (type==='chase')
+    return {laps:10,riders:makeRiders(8),finishPoints:[10,8,6,4,3,2,1,0]};
+  if (type==='elimination')
+    return {riders:makeRiders(8),finishPoints:[10,8,6,4,3,2,1,0]};
+  if (type==='madison')
+    return {laps:100,sprintInterval:20,teams:makeMadisonTeams(4),
+      sprintPoints:[5,4,3,2,1],finishPoints:[20,17,15,13,11,9,7,5]};
+  if (type==='unknown')
+    return {laps:15,riders:makeRiders(8),finishPoints:[10,8,6,4,3,2,1,0]};
+  return {};
+}
+
+function addRace(type='chase', group='Junior A') {
+  const id = ++raceIdCounter;
+  const entry = {id, group, type, ...defaultConfig(type)};
+  scheduleRaces.push(entry);
+  renderSchedule();
+  // open last entry
+  setTimeout(()=>{
+    const el = document.getElementById(`race-entry-${id}`);
+    if(el){ el.classList.add('open'); }
+  }, 50);
+}
+
+function removeRace(id) {
+  scheduleRaces = scheduleRaces.filter(r=>r.id!==id);
+  renderSchedule();
+}
+
+function moveRace(id, dir) {
+  const idx = scheduleRaces.findIndex(r=>r.id===id);
+  const swap = idx+dir;
+  if(swap<0||swap>=scheduleRaces.length) return;
+  [scheduleRaces[idx],scheduleRaces[swap]] = [scheduleRaces[swap],scheduleRaces[idx]];
+  renderSchedule();
+}
+
+function toggleEntry(id) {
+  const el = document.getElementById(`race-entry-${id}`);
+  el.classList.toggle('open');
+}
+
+function updateRaceField(id, field, value) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  if(!r) return;
+  if(field==='type') {
+    const newConf = defaultConfig(value);
+    Object.assign(r, {type:value, ...newConf});
+    renderSchedule();
+    setTimeout(()=>{
+      document.getElementById(`race-entry-${id}`)?.classList.add('open');
+    },50);
+  } else {
+    r[field] = value;
+  }
+}
+
+function updatePtsArray(id, field, pos, val) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  if(!r) return;
+  r[field][pos] = parseInt(val)||0;
+}
+
+// Rider management
+function addRider(id) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.riders.push({name:`Rider ${r.riders.length+1}`,color:DEFAULT_COLORS[r.riders.length%DEFAULT_COLORS.length]});
+  renderSchedule();
+  document.getElementById(`race-entry-${id}`)?.classList.add('open');
+}
+function removeRider(id, ri) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.riders.splice(ri,1);
+  renderSchedule();
+  document.getElementById(`race-entry-${id}`)?.classList.add('open');
+}
+function updateRider(id, ri, field, val) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.riders[ri][field] = val;
+}
+function updateRiderColor(id, ri, val) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.riders[ri].color = val;
+  document.getElementById(`swatch-bg-${id}-${ri}`).style.background = val;
+}
+
+// Team management (Madison)
+function addTeam(id) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.teams.push({name:`Team ${r.teams.length+1}`,color:DEFAULT_COLORS[r.teams.length%DEFAULT_COLORS.length]});
+  renderSchedule();
+  document.getElementById(`race-entry-${id}`)?.classList.add('open');
+}
+function removeTeam(id, ti) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.teams.splice(ti,1);
+  renderSchedule();
+  document.getElementById(`race-entry-${id}`)?.classList.add('open');
+}
+function updateTeam(id, ti, field, val) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.teams[ti][field] = val;
+}
+function updateTeamColor(id, ti, val) {
+  const r = scheduleRaces.find(r=>r.id===id);
+  r.teams[ti].color = val;
+  document.getElementById(`team-swatch-bg-${id}-${ti}`).style.background = val;
+}
+
+function renderSchedule() {
+  const list = document.getElementById('schedule-list');
+  list.innerHTML = '';
+  scheduleRaces.forEach((r,idx)=>{
+    const div = document.createElement('div');
+    div.className = 'race-entry';
+    div.id = `race-entry-${r.id}`;
+    div.innerHTML = buildRaceEntryHTML(r, idx);
+    list.appendChild(div);
+  });
+}
+
+function buildRaceEntryHTML(r, idx) {
+  const groupOpts = GROUPS.map(g=>`<option value="${g}" ${g===r.group?'selected':''}>${g}</option>`).join('');
+  const typeOpts  = RACE_TYPES.map(t=>`<option value="${t.value}" ${t.value===r.type?'selected':''}>${t.label}</option>`).join('');
+  const title = `${r.group} – ${TYPE_LABELS[r.type]||r.type}`;
+
+  let bodyHTML = '';
+
+  // Common: laps (not for elimination)
+  if(r.type!=='elimination') {
+    const lapLabel = r.type==='unknown' ? 'Laps (hidden from riders)' : 'Laps';
+    bodyHTML += `<div class="race-entry-body-grid">
+      <div><label>${lapLabel}</label><input type="number" value="${r.laps}" min="1" max="999" oninput="updateRaceField(${r.id},'laps',parseInt(this.value)||1)"></div>
+      ${r.type==='madison'?`<div><label>Sprint Interval (laps)</label><input type="number" value="${r.sprintInterval}" min="1" max="200" oninput="updateRaceField(${r.id},'sprintInterval',parseInt(this.value)||20)"></div>`:''}
+    </div>`;
+  }
+
+  // Riders section
+  if(r.type!=='madison') {
+    bodyHTML += `<div class="riders-section"><h4>Riders <button class="btn btn-secondary btn-sm" onclick="addRider(${r.id})" style="margin-left:8px;font-size:.7rem">+ ADD</button></h4><div class="rider-list">`;
+    r.riders.forEach((rd,ri)=>{
+      bodyHTML += `<div class="rider-row">
+        <div class="color-dot-pick" id="swatch-${r.id}-${ri}">
+          <div class="color-dot-bg" id="swatch-bg-${r.id}-${ri}" style="background:${rd.color}"></div>
+          <input type="color" value="${rd.color}" oninput="updateRiderColor(${r.id},${ri},this.value)">
+        </div>
+        <input type="text" value="${escHtml(rd.name)}" placeholder="Rider name" oninput="updateRider(${r.id},${ri},'name',this.value)">
+        <button class="btn-remove-rider" onclick="removeRider(${r.id},${ri})">✕</button>
+      </div>`;
+    });
+    bodyHTML += `</div></div>`;
+  }
+
+  // Teams section (Madison)
+  if(r.type==='madison') {
+    bodyHTML += `<div class="teams-section"><h4>Teams <button class="btn btn-secondary btn-sm" onclick="addTeam(${r.id})" style="margin-left:8px;font-size:.7rem">+ ADD</button></h4>`;
+    r.teams.forEach((tm,ti)=>{
+      bodyHTML += `<div class="team-row">
+        <div class="color-dot-pick" id="team-swatch-${r.id}-${ti}" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);overflow:hidden;position:relative;flex-shrink:0;">
+          <div class="color-dot-bg" id="team-swatch-bg-${r.id}-${ti}" style="background:${tm.color};position:absolute;inset:0;border-radius:50%;"></div>
+          <input type="color" value="${tm.color}" style="position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;" oninput="updateTeamColor(${r.id},${ti},this.value)">
+        </div>
+        <input type="text" value="${escHtml(tm.name)}" placeholder="Team name" oninput="updateTeam(${r.id},${ti},'name',this.value)">
+        <button class="btn-remove-rider" onclick="removeTeam(${r.id},${ti})">✕</button>
+      </div>`;
+    });
+    bodyHTML += `</div>`;
+
+    // Sprint points
+    bodyHTML += `<div style="margin-top:10px;"><label>Sprint Points (1st–${r.sprintPoints.length}th)</label><div class="pts-inline">`;
+    r.sprintPoints.forEach((p,i)=>{
+      const ord = ['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH'][i]||`${i+1}TH`;
+      bodyHTML+=`<div class="pts-inline-field"><label>${ord}</label><input type="number" value="${p}" min="0" max="99" oninput="updatePtsArray(${r.id},'sprintPoints',${i},this.value)"></div>`;
+    });
+    bodyHTML += `</div></div>`;
+  }
+
+  // Finish points
+  const fpSrc = r.type==='madison' ? r.finishPoints : r.finishPoints;
+  const fpCount = r.type==='madison' ? r.teams.length : r.riders.length;
+  bodyHTML += `<div style="margin-top:12px;"><label>Finish Points (1st–${fpCount}th)</label><div class="pts-inline">`;
+  for(let i=0;i<fpCount;i++){
+    const ord=['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH','9TH','10TH','11TH','12TH'][i]||`${i+1}TH`;
+    const val = r.finishPoints[i]??0;
+    bodyHTML+=`<div class="pts-inline-field"><label>${ord}</label><input type="number" value="${val}" min="0" max="99" oninput="updatePtsArray(${r.id},'finishPoints',${i},this.value)"></div>`;
+  }
+  bodyHTML += `</div></div>`;
+
+  return `
+    <div class="race-entry-header" onclick="toggleEntry(${r.id})">
+      <span class="race-num">${idx+1}</span>
+      <span class="race-type-badge ${TYPE_BADGE[r.type]}">${TYPE_LABELS[r.type]}</span>
+      <span class="race-entry-title">${title}</span>
+      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();moveRace(${r.id},-1)" style="padding:3px 8px;">↑</button>
+      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();moveRace(${r.id},1)" style="padding:3px 8px;">↓</button>
+      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeRace(${r.id})" style="padding:3px 10px;">✕</button>
+      <select onchange="updateRaceField(${r.id},'group',this.value)" onclick="event.stopPropagation()" style="width:110px;font-size:.8rem;padding:4px 24px 4px 8px;">${groupOpts}</select>
+      <select onchange="updateRaceField(${r.id},'type',this.value)" onclick="event.stopPropagation()" style="width:140px;font-size:.8rem;padding:4px 24px 4px 8px;">${typeOpts}</select>
+    </div>
+    <div class="race-entry-body">${bodyHTML}</div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════
+// START NIGHT
+// ══════════════════════════════════════════════════════
+function startNight() {
+  if(scheduleRaces.length===0){ alert('Add at least one race!'); return; }
+  const title = document.getElementById('night-title-input').value || 'Race Night';
+  document.getElementById('header-title').textContent = title.toUpperCase();
+  document.getElementById('header-sub').textContent = 'RACE IN PROGRESS';
+  document.getElementById('summary-title-sub').textContent = title.toUpperCase();
+
+  // Deep copy races
+  nightState.races = JSON.parse(JSON.stringify(scheduleRaces));
+  nightState.currentIdx = 0;
+  nightState.raceResults = [];
+
+  showPage('page-race');
+  buildProgressStrip();
+  loadRace(0);
+}
+
+function buildProgressStrip() {
+  const strip = document.getElementById('race-progress-strip');
+  strip.innerHTML = nightState.races.map((_,i)=>`<div class="rp-dot" id="rp-dot-${i}"></div>`).join('');
+  updateProgressStrip();
+}
+
+function updateProgressStrip() {
+  nightState.races.forEach((_,i)=>{
+    const dot = document.getElementById(`rp-dot-${i}`);
+    if(!dot) return;
+    dot.className = 'rp-dot';
+    if(i < nightState.currentIdx) dot.classList.add('done');
+    else if(i === nightState.currentIdx) dot.classList.add('active');
+  });
+  const pct = (nightState.currentIdx / nightState.races.length)*100;
+  document.getElementById('night-prog-fill').style.width = pct+'%';
+}
+
+// ══════════════════════════════════════════════════════
+// RACE LOADER
+// ══════════════════════════════════════════════════════
+let activeRace = null; // runtime state for current race
+
+function loadRace(idx) {
+  nightState.currentIdx = idx;
+  updateProgressStrip();
+  const r = nightState.races[idx];
+
+  document.getElementById('race-event-num').textContent = `EVENT ${idx+1} OF ${nightState.races.length}`;
+  document.getElementById('race-title').textContent = `${r.group} – ${TYPE_LABELS[r.type]}`;
+  document.getElementById('race-sub').textContent = r.type==='madison'
+    ? `${r.laps} laps · Sprint every ${r.sprintInterval} laps`
+    : r.type==='elimination' ? 'Click to eliminate riders'
+    : r.type==='unknown' ? `${r.laps} laps (riders don't know)`
+    : `${r.laps} laps`;
+
+  // Hide all race UIs
+  ['race-chase','race-elimination','race-madison','race-unknown'].forEach(id=>{
+    document.getElementById(id).style.display = 'none';
+  });
+
+  if(r.type==='chase')       loadChase(r);
+  if(r.type==='elimination') loadElimination(r);
+  if(r.type==='madison')     loadMadison(r);
+  if(r.type==='unknown')     loadUnknown(r);
+}
+
+// ══════════════════════════════════════════════════════
+// CHASE RACE
+// ══════════════════════════════════════════════════════
+function loadChase(r) {
+  activeRace = {type:'chase', r, laps: r.laps, lapsDone:0};
+  document.getElementById('race-chase').style.display = 'block';
+  updateChaseDisplay();
+
+  // Riders list
+  const disp = document.getElementById('chase-riders-display');
+  disp.innerHTML = r.riders.map(rd=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.9rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+      <span style="width:8px;height:8px;border-radius:50%;background:${rd.color};box-shadow:0 0 5px ${rd.color};flex-shrink:0;display:inline-block;"></span>
+      ${escHtml(rd.name)}
+    </div>`).join('');
+}
+
+function updateChaseDisplay() {
+  const {laps, lapsDone} = activeRace;
+  const rem = laps - lapsDone;
+  const el = document.getElementById('chase-lap-num');
+  el.textContent = rem;
+  el.className = 'lap-num-display';
+  if(rem<=3 && rem>0) el.classList.add('warn');
+  if(rem===0) el.classList.add('final');
+}
+
+function chaseAdvance() {
+  if(activeRace.type!=='chase') return;
+  if(activeRace.lapsDone >= activeRace.laps) return;
+  activeRace.lapsDone++;
+  updateChaseDisplay();
+  if(activeRace.lapsDone >= activeRace.laps) {
+    setTimeout(()=>openFinishModal(activeRace.r.riders, activeRace.r.finishPoints, 'chase'), 300);
+  }
+}
+function chaseUndo() {
+  if(activeRace.lapsDone>0) { activeRace.lapsDone--; updateChaseDisplay(); }
+}
+
+// ══════════════════════════════════════════════════════
+// ELIMINATION RACE
+// ══════════════════════════════════════════════════════
+function loadElimination(r) {
+  activeRace = {type:'elimination', r, eliminated:[], remaining:[...r.riders.map((_,i)=>i)]};
+  document.getElementById('race-elimination').style.display = 'block';
+  renderElimGrid();
+  renderElimOrder();
+}
+
+function renderElimGrid() {
+  const {r, eliminated} = activeRace;
+  const grid = document.getElementById('elim-riders-grid');
+  grid.innerHTML = r.riders.map((rd,i)=>{
+    const isElim = eliminated.includes(i);
+    const isLast = !isElim && eliminated.length === r.riders.length-1;
+    return `<button class="rider-btn ${isElim?'eliminated':''} ${isLast?'winner':''}"
+      style="--rider-color:${rd.color}"
+      onclick="eliminateRider(${i})"
+      ${isElim||isLast?'':''}
+    >${escHtml(rd.name)}</button>`;
+  }).join('');
+
+  // Show finish btn if only 1 remains
+  const finBtn = document.getElementById('elim-finish-btn');
+  finBtn.style.display = eliminated.length >= r.riders.length-1 ? 'block' : 'none';
+}
+
+function eliminateRider(ri) {
+  if(activeRace.eliminated.includes(ri)) return;
+  if(activeRace.eliminated.length >= activeRace.r.riders.length-1) return;
+  activeRace.eliminated.push(ri);
+  renderElimGrid();
+  renderElimOrder();
+}
+
+function renderElimOrder() {
+  const {r, eliminated} = activeRace;
+  const list = document.getElementById('elim-order-list');
+  if(eliminated.length===0){ list.innerHTML='<div style="color:var(--text-dim);font-size:.8rem;letter-spacing:1px">No eliminations yet</div>'; return; }
+  list.innerHTML = eliminated.map((ri,pos)=>{
+    const rd = r.riders[ri];
+    return `<div class="elim-order-item">
+      <span class="elim-badge" style="background:${rd.color};box-shadow:0 0 4px ${rd.color};"></span>
+      <span style="flex:1;font-size:.85rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;">${escHtml(rd.name)}</span>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--danger);">−${pos+1}</span>
+    </div>`;
+  }).join('');
+}
+
+function openElimFinishModal() {
+  // Finish order = reverse of elimination (last to first), winner at top
+  const {r, eliminated} = activeRace;
+  const remainingIdx = r.riders.map((_,i)=>i).filter(i=>!eliminated.includes(i));
+  // Full finish order: winner first, then reverse-eliminate order
+  const finishOrder = [...remainingIdx, ...[...eliminated].reverse()];
+  // Auto-complete the result
+  const finishData = finishOrder.map((ri,pos)=>({
+    id: ri,
+    name: r.riders[ri].name,
+    color: r.riders[ri].color,
+    points: r.finishPoints[pos]??0,
+    pos: pos+1,
+  }));
+  showResults(activeRace.r, finishData);
+}
+
+// ══════════════════════════════════════════════════════
+// MADISON RACE
+// ══════════════════════════════════════════════════════
+function loadMadison(r) {
+  activeRace = {
+    type:'madison', r,
+    laps: r.laps, lapsDone:0,
+    teams: r.teams.map(t=>({...t, sprintPts:0, finishPts:0, sprintsWon:0})),
+    sprintHistory:[],
+    modalMode:null, modalSels:[], modalMaxSels:0, lastSprintAt:null,
+  };
+  document.getElementById('race-madison').style.display = 'block';
+  document.getElementById('madison-sprint-hist').innerHTML = '<div style="color:var(--text-dim);font-size:.75rem;letter-spacing:1px">No sprints yet</div>';
+  renderMadisonLB();
+  updateMadisonStatus();
+  updateMadisonLapDisplay();
+}
+
+function updateMadisonLapDisplay() {
+  const rem = activeRace.laps - activeRace.lapsDone;
+  const el = document.getElementById('madison-lap-num');
+  el.textContent = rem;
+  el.className = 'lap-num-display';
+  const toLap = activeRace.r.sprintInterval - (activeRace.lapsDone % activeRace.r.sprintInterval);
+  if(toLap<=3 && toLap>0 && rem>0) el.classList.add('warn');
+  if(rem<=0) el.classList.add('final');
+}
+
+function madisonAdvance() {
+  if(activeRace.type!=='madison') return;
+  if(activeRace.lapsDone >= activeRace.laps) return;
+  activeRace.lapsDone++;
+  document.querySelectorAll('.lb-row').forEach(r=>{r.classList.remove('flash');void r.offsetWidth;r.classList.add('flash');});
+  updateMadisonLapDisplay();
+  updateMadisonStatus();
+  const done = activeRace.lapsDone;
+  const interval = activeRace.r.sprintInterval;
+  if(done < activeRace.laps && done % interval === 0) {
+    activeRace.lastSprintAt = activeRace.laps - done;
+    openMadisonSprintModal();
+    return;
+  }
+  if(done >= activeRace.laps) {
+    setTimeout(()=>openMadisonFinishModal(),300);
+  }
+}
+function madisonUndo() {
+  if(activeRace.lapsDone>0){ activeRace.lapsDone--; updateMadisonLapDisplay(); updateMadisonStatus(); }
+}
+
+function updateMadisonStatus() {
+  const {lapsDone,laps,r} = activeRace;
+  const toNext = r.sprintInterval - (lapsDone % r.sprintInterval);
+  const sdone = Math.floor(lapsDone/r.sprintInterval);
+  const stotal = Math.floor(laps/r.sprintInterval);
+  document.getElementById('madison-status').innerHTML =
+    `Laps done: <b style="color:var(--text)">${lapsDone}/${laps}</b><br>
+     Sprints: <b style="color:var(--accent)">${sdone}/${stotal}</b><br>
+     Next sprint: <b style="color:var(--accent2)">${toNext} laps</b>`;
+}
+
+function renderMadisonLB() {
+  const sorted = [...activeRace.teams].sort((a,b)=>{
+    const ta=(a.sprintPts+a.finishPts), tb=(b.sprintPts+b.finishPts);
+    return tb!==ta ? tb-ta : b.sprintsWon-a.sprintsWon;
+  });
+  const body = document.getElementById('madison-lb-body');
+  body.innerHTML = '';
+  sorted.forEach((t,idx)=>{
+    const pos=idx+1, total=t.sprintPts+t.finishPts;
+    const row=document.createElement('div');
+    row.className=`lb-row ${pos<=3?`rank-${pos}`:''}`;
+    row.style.setProperty('--team-color',t.color);
+    const pc=pos<=3?`p${pos}`:'';
+    row.innerHTML=`<div class="lb-pos ${pc}">${pos}</div>
+      <div class="lb-team"><div class="lb-dot" style="background:${t.color};box-shadow:0 0 6px ${t.color}"></div><div class="lb-name">${escHtml(t.name)}</div></div>
+      <div class="lb-stat"><div class="val">${t.sprintPts}</div><div class="lbl">sprint</div></div>
+      <div class="lb-stat"><div class="val">${t.sprintsWon}</div><div class="lbl">won</div></div>
+      <div class="lb-stat pts"><div class="val">${total}</div><div class="lbl">total</div></div>`;
+    body.appendChild(row);
+  });
+}
+
+function openMadisonSprintModal() {
+  activeRace.modalMode = 'sprint';
+  activeRace.modalSels = [];
+  activeRace.modalMaxSels = activeRace.r.sprintPoints.length;
+  openModal(`SPRINT — LAP ${activeRace.lastSprintAt}`,
+    `Top ${activeRace.modalMaxSels} finishers earn points`,
+    activeRace.teams.map((t,i)=>({id:i,name:t.name,color:t.color})),
+    activeRace.r.sprintPoints, false, madisonModalConfirm);
+}
+
+function openMadisonFinishModal() {
+  activeRace.modalMode = 'finish';
+  activeRace.modalSels = [];
+  activeRace.modalMaxSels = activeRace.teams.length;
+  openModal('FINAL FINISH ORDER','Click all teams in finish order',
+    activeRace.teams.map((t,i)=>({id:i,name:t.name,color:t.color})),
+    activeRace.r.finishPoints, true, madisonModalConfirm);
+}
+
+function madisonModalConfirm(selections) {
+  if(activeRace.modalMode==='sprint') {
+    selections.forEach((id,pos)=>{
+      const pts = activeRace.r.sprintPoints[pos]||0;
+      activeRace.teams[id].sprintPts += pts;
+      if(pos===0) activeRace.teams[id].sprintsWon++;
+    });
+    activeRace.sprintHistory.push({lap:activeRace.lastSprintAt, order:selections});
+    renderMadisonSprintHist();
+    renderMadisonLB();
+    updateMadisonStatus();
+  } else {
+    selections.forEach((id,pos)=>{ activeRace.teams[id].finishPts += activeRace.r.finishPoints[pos]||0; });
+    const finishData = selections.map((id,pos)=>({
+      id, name:activeRace.teams[id].name, color:activeRace.teams[id].color,
+      points: (activeRace.teams[id].sprintPts + activeRace.teams[id].finishPts),
+      pos:pos+1,
+    })).sort((a,b)=>b.points-a.points).map((x,i)=>({...x,pos:i+1}));
+    showResults(activeRace.r, finishData, true);
+  }
+}
+
+function renderMadisonSprintHist() {
+  const container = document.getElementById('madison-sprint-hist');
+  if(!activeRace.sprintHistory.length){ container.innerHTML='<div style="color:var(--text-dim);font-size:.75rem;letter-spacing:1px">No sprints yet</div>'; return; }
+  container.innerHTML = activeRace.sprintHistory.slice().reverse().map(s=>{
+    const winner = activeRace.teams[s.order[0]];
+    const dots = s.order.slice(0,3).map(id=>`<span class="sh-dot" style="background:${activeRace.teams[id].color}"></span>`).join('');
+    return `<div class="sprint-hist-item">
+      <div><div class="sh-lap">LAP ${s.lap}</div><div style="color:${winner.color};font-weight:700;font-size:.8rem;letter-spacing:1px">${escHtml(winner.name)}</div></div>
+      <div class="sh-dots">${dots}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// UNKNOWN DISTANCE RACE
+// ══════════════════════════════════════════════════════
+function loadUnknown(r) {
+  activeRace = {type:'unknown', r, laps:r.laps, lapsDone:0, finished:false};
+  document.getElementById('race-unknown').style.display = 'block';
+  document.getElementById('unknown-lap-num').textContent = '1';
+
+  const disp = document.getElementById('unknown-riders-display');
+  disp.innerHTML = r.riders.map(rd=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.9rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;">
+      <span style="width:8px;height:8px;border-radius:50%;background:${rd.color};box-shadow:0 0 5px ${rd.color};flex-shrink:0;display:inline-block;"></span>
+      ${escHtml(rd.name)}
+    </div>`).join('');
+}
+
+function unknownAdvance() {
+  if(activeRace.type!=='unknown') return;
+  if(activeRace.finished) return;
+  activeRace.lapsDone++;
+  document.getElementById('unknown-lap-num').textContent = activeRace.lapsDone;
+  if(activeRace.lapsDone >= activeRace.laps) {
+    activeRace.finished = true;
+    document.getElementById('unknown-adv-btn').style.opacity = '0.3';
+    document.getElementById('unknown-adv-btn').style.pointerEvents = 'none';
+    setTimeout(()=>openFinishModal(activeRace.r.riders, activeRace.r.finishPoints, 'unknown'), 300);
+  }
+}
+function unknownUndo() {
+  if(activeRace.lapsDone>0){ activeRace.lapsDone--; document.getElementById('unknown-lap-num').textContent = Math.max(1,activeRace.lapsDone); activeRace.finished=false; document.getElementById('unknown-adv-btn').style.opacity=''; document.getElementById('unknown-adv-btn').style.pointerEvents=''; }
+}
+
+// ══════════════════════════════════════════════════════
+// GENERIC FINISH MODAL
+// ══════════════════════════════════════════════════════
+let modalCallback = null;
+let modalEntityList = [];
+let modalPtsArr = [];
+let modalSels = [];
+let modalMaxSels = 0;
+let modalRequireAll = false;
+
+function openModal(title, sub, entities, ptsArr, requireAll, callback) {
+  modalCallback = callback;
+  modalEntityList = entities;
+  modalPtsArr = ptsArr;
+  modalSels = [];
+  modalMaxSels = requireAll ? entities.length : ptsArr.length;
+  modalRequireAll = requireAll;
+
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-sub').textContent = sub;
+
+  // Buttons
+  const btns = document.getElementById('modal-finish-btns');
+  btns.innerHTML = entities.map(e=>`
+    <button class="f-btn" id="fmodal-btn-${e.id}" onclick="modalSelectEntity(${e.id})">
+      <span class="fdot" style="background:${e.color};box-shadow:0 0 5px ${e.color}"></span>
+      ${escHtml(e.name)}
+    </button>`).join('');
+
+  // Slots
+  const slots = document.getElementById('modal-result-slots');
+  slots.innerHTML = Array.from({length:modalMaxSels},(_,i)=>{
+    const pts = ptsArr[i]??0;
+    return `<div class="result-slot p${i<3?i+1:''}" id="mslot-${i}">
+      <span class="rs-pos">${['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH','9TH','10TH'][i]||`${i+1}TH`}</span>
+      <span class="rs-dot" style="display:none"></span>
+      <span class="rs-name" style="color:var(--text-dim);font-size:.8rem">—</span>
+      <span class="rs-pts">+${pts}pts</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('modal-confirm').disabled = true;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function openFinishModal(riders, ptsArr, raceType) {
+  openModal('FINISH ORDER','Click riders in finish order',
+    riders.map((rd,i)=>({id:i,name:rd.name,color:rd.color})),
+    ptsArr, true, (sels)=>{
+      const finishData = sels.map((ri,pos)=>({
+        id:ri, name:riders[ri].name, color:riders[ri].color,
+        points:ptsArr[pos]??0, pos:pos+1,
+      }));
+      showResults(activeRace.r, finishData);
+    });
+}
+
+function modalSelectEntity(id) {
+  if(modalSels.includes(id)) return;
+  if(modalSels.length >= modalMaxSels) return;
+  modalSels.push(id);
+  const pos = modalSels.length-1;
+  document.getElementById(`fmodal-btn-${id}`).disabled = true;
+  const ent = modalEntityList.find(e=>e.id===id);
+  const slot = document.getElementById(`mslot-${pos}`);
+  slot.classList.add('filled');
+  slot.querySelector('.rs-dot').style.cssText = `display:inline-block;background:${ent.color};box-shadow:0 0 4px ${ent.color}`;
+  slot.querySelector('.rs-name').textContent = ent.name;
+  slot.querySelector('.rs-name').style.color = ent.color;
+  const ready = modalRequireAll ? modalSels.length === modalEntityList.length : modalSels.length >= 1;
+  document.getElementById('modal-confirm').disabled = !ready;
+}
+
+function modalReset() {
+  modalSels = [];
+  document.querySelectorAll('.f-btn').forEach(b=>b.disabled=false);
+  for(let i=0;i<modalMaxSels;i++){
+    const slot=document.getElementById(`mslot-${i}`);
+    if(!slot) continue;
+    slot.classList.remove('filled');
+    slot.querySelector('.rs-dot').style.display='none';
+    slot.querySelector('.rs-name').textContent='—';
+    slot.querySelector('.rs-name').style.color='var(--text-dim)';
+  }
+  document.getElementById('modal-confirm').disabled=true;
+}
+
+function modalConfirm() {
+  const sels = [...modalSels];
+  document.getElementById('modal-overlay').classList.add('hidden');
+  if(modalCallback) modalCallback(sels);
+}
+
+// ══════════════════════════════════════════════════════
+// SHOW RESULTS BETWEEN RACES
+// ══════════════════════════════════════════════════════
+function showResults(raceConfig, finishData, isMadison=false) {
+  nightState.raceResults[nightState.currentIdx] = {raceConfig, finishData};
+
+  showPage('page-results');
+  document.getElementById('results-title').textContent = `${raceConfig.group} – ${TYPE_LABELS[raceConfig.type]}`;
+  document.getElementById('results-sub').textContent = `Event ${nightState.currentIdx+1} of ${nightState.races.length} · Results`;
+
+  // Podium
+  const podium = document.getElementById('results-podium');
+  const top3 = finishData.slice(0,3);
+  podium.innerHTML = top3.map((f,i)=>{
+    const posLabel = ['1ST','2ND','3RD'][i];
+    return `<div class="podium-card p${i+1}" style="--pc:${f.color}">
+      <div class="podium-pos">${posLabel}</div>
+      <div class="podium-name" style="color:${f.color}">${escHtml(f.name)}</div>
+      ${f.points>0?`<div class="podium-pts">+${f.points} pts</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Full table
+  const body = document.getElementById('results-table-body');
+  body.innerHTML = finishData.map((f,i)=>{
+    const pos=i+1, pc=pos<=3?`p${pos}`:'';
+    return `<div class="rt-row" style="--row-color:${f.color}">
+      <div class="rt-pos ${pc}">${pos}</div>
+      <div class="rt-name"><span class="rt-dot" style="background:${f.color};box-shadow:0 0 5px ${f.color}"></span>${escHtml(f.name)}</div>
+      <div class="rt-pts">${f.points}</div>
+    </div>`;
+  }).join('');
+
+  // Next race button label
+  const isLast = nightState.currentIdx >= nightState.races.length-1;
+  const nextBtn = document.getElementById('next-race-btn');
+  nextBtn.textContent = isLast ? 'VIEW SUMMARY →' : 'NEXT RACE →';
+}
+
+function proceedToNextRace() {
+  const isLast = nightState.currentIdx >= nightState.races.length-1;
+  if(isLast) {
+    showSummary();
+    return;
+  }
+  nightState.currentIdx++;
+  showPage('page-race');
+  loadRace(nightState.currentIdx);
+}
+
+// ══════════════════════════════════════════════════════
+// SKIP RACE
+// ══════════════════════════════════════════════════════
+function confirmSkipRace() {
+  showConfirm('SKIP RACE','Skip this race and move to the next?', ()=>{
+    nightState.raceResults[nightState.currentIdx] = null;
+    const isLast = nightState.currentIdx >= nightState.races.length-1;
+    if(isLast){ showSummary(); return; }
+    nightState.currentIdx++;
+    loadRace(nightState.currentIdx);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// SUMMARY
+// ══════════════════════════════════════════════════════
+function showSummary() {
+  document.getElementById('header-sub').textContent = 'RACE NIGHT COMPLETE';
+  showPage('page-summary');
+  const list = document.getElementById('summary-list');
+  list.innerHTML = nightState.raceResults.map((res,idx)=>{
+    if(!res) return `<div class="summary-race"><div class="summary-race-hdr"><span class="sr-num">${idx+1}</span><span class="sr-title">${nightState.races[idx].group} – ${TYPE_LABELS[nightState.races[idx].type]}</span><span class="sr-toggle" style="color:var(--danger)">SKIPPED</span></div></div>`;
+    const {raceConfig, finishData} = res;
+    return `<div class="summary-race" id="sum-race-${idx}">
+      <div class="summary-race-hdr" onclick="toggleSummaryRace(${idx})">
+        <span class="sr-num">${idx+1}</span>
+        <span class="race-type-badge ${TYPE_BADGE[raceConfig.type]}">${TYPE_LABELS[raceConfig.type]}</span>
+        <span class="sr-title">${raceConfig.group}</span>
+        <span class="sr-toggle">▸</span>
+      </div>
+      <div class="summary-race-body">
+        <div class="sr-results">
+          ${finishData.map((f,i)=>`<div class="sr-result-row">
+            <span class="sr-result-pos">${['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH','9TH','10TH'][i]||`${i+1}TH`}</span>
+            <span class="sr-result-dot" style="background:${f.color};box-shadow:0 0 4px ${f.color}"></span>
+            <span style="flex:1">${escHtml(f.name)}</span>
+            ${f.points>0?`<span class="sr-result-pts">+${f.points}pts</span>`:''}
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSummaryRace(idx) {
+  document.getElementById(`sum-race-${idx}`)?.classList.toggle('open');
+}
+
+function backToSchedule() {
+  document.getElementById('header-sub').textContent = 'BUILD YOUR SCHEDULE';
+  showPage('page-schedule');
+}
+
+// ══════════════════════════════════════════════════════
+// CONFIRM DIALOG
+// ══════════════════════════════════════════════════════
+let confirmCb = null;
+function showConfirm(title, msg, cb) {
+  confirmCb = cb;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+function closeConfirm() { document.getElementById('confirm-overlay').classList.add('hidden'); }
+document.getElementById('confirm-ok-btn').onclick = ()=>{ closeConfirm(); if(confirmCb) confirmCb(); };
+
+// ══════════════════════════════════════════════════════
+// PAGE SWITCHING
+// ══════════════════════════════════════════════════════
+function showPage(id) {
+  ['page-schedule','page-race','page-results','page-summary'].forEach(p=>{
+    document.getElementById(p).style.display = p===id ? 'block' : 'none';
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// KEYBOARD
+// ══════════════════════════════════════════════════════
+document.addEventListener('keydown', e=>{
+  if(e.code!=='Space') return;
+  // Only fire if a race is active and modal is closed
+  if(document.getElementById('page-race').style.display==='none') return;
+  if(!document.getElementById('modal-overlay').classList.contains('hidden')) return;
+  e.preventDefault();
+  if(!activeRace) return;
+  if(activeRace.type==='chase') chaseAdvance();
+  else if(activeRace.type==='madison') madisonAdvance();
+  else if(activeRace.type==='unknown') unknownAdvance();
+});
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══════════════════════════════════════════════════════
+// OBS BROADCAST SYSTEM
+// Writes state to localStorage so the overlay can read it
+// ══════════════════════════════════════════════════════
+function broadcast(view, data) {
+  // view: 'race_active' | 'race_results' | 'schedule_next' | 'summary' | 'idle'
+  try {
+    const payload = { view, data, ts: Date.now() };
+    localStorage.setItem('velotrack_overlay', JSON.stringify(payload));
+  } catch(e) { /* localStorage may be unavailable in some contexts */ }
+}
+
+// Patch key state-change functions to auto-broadcast
+const _origShowResults = showResults;
+// We'll wrap at the call sites below instead
+
+function broadcastCurrentRaceState() {
+  if (!activeRace) return;
+  const r = activeRace.r;
+  const idx = nightState.currentIdx;
+  const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+
+  // Build next-up info
+  const nextRaces = nightState.races.slice(idx+1, idx+4).map((nr,i)=>({
+    num: idx+2+i,
+    label: `${nr.group} – ${TYPE_LABELS[nr.type]}`,
+    type: nr.type,
+  }));
+
+  if (activeRace.type === 'chase' || activeRace.type === 'unknown') {
+    const lapsDone = activeRace.lapsDone;
+    const totalLaps = activeRace.laps;
+    const lapsLeft = totalLaps - lapsDone;
+    broadcast('race_active', {
+      nightTitle,
+      eventNum: idx+1,
+      totalEvents: nightState.races.length,
+      raceTitle: `${r.group} – ${TYPE_LABELS[r.type]}`,
+      raceType: activeRace.type,
+      lapsLeft: activeRace.type==='unknown' ? null : lapsLeft,
+      lapsDone: activeRace.type==='unknown' ? lapsDone : null,
+      riders: r.riders.map(rd=>({name:rd.name, color:rd.color})),
+      nextRaces,
+    });
+  } else if (activeRace.type === 'elimination') {
+    const {r: er, eliminated} = activeRace;
+    broadcast('race_active', {
+      nightTitle,
+      eventNum: idx+1,
+      totalEvents: nightState.races.length,
+      raceTitle: `${er.group} – ${TYPE_LABELS[er.type]}`,
+      raceType: 'elimination',
+      riders: er.riders.map((rd,i)=>({name:rd.name, color:rd.color, eliminated:eliminated.includes(i)})),
+      nextRaces,
+    });
+  } else if (activeRace.type === 'madison') {
+    const sorted = [...activeRace.teams].sort((a,b)=>{
+      const ta=a.sprintPts+a.finishPts, tb=b.sprintPts+b.finishPts;
+      return tb!==ta ? tb-ta : b.sprintsWon-a.sprintsWon;
+    });
+    const lapsLeft = activeRace.laps - activeRace.lapsDone;
+    const toSprint = activeRace.r.sprintInterval - (activeRace.lapsDone % activeRace.r.sprintInterval);
+    broadcast('race_active', {
+      nightTitle,
+      eventNum: idx+1,
+      totalEvents: nightState.races.length,
+      raceTitle: `${r.group} – ${TYPE_LABELS[r.type]}`,
+      raceType: 'madison',
+      lapsLeft,
+      toSprint: toSprint < activeRace.r.sprintInterval ? toSprint : null,
+      leaderboard: sorted.map((t,i)=>({
+        pos: i+1,
+        name: t.name,
+        color: t.color,
+        sprintPts: t.sprintPts,
+        sprintsWon: t.sprintsWon,
+        total: t.sprintPts + t.finishPts,
+      })),
+      nextRaces,
+    });
+  }
+}
+
+function broadcastResults(raceConfig, finishData) {
+  const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+  const idx = nightState.currentIdx;
+  const nextRace = nightState.races[idx+1];
+  broadcast('race_results', {
+    nightTitle,
+    eventNum: idx+1,
+    totalEvents: nightState.races.length,
+    raceTitle: `${raceConfig.group} – ${TYPE_LABELS[raceConfig.type]}`,
+    raceType: raceConfig.type,
+    results: finishData.map((f,i)=>({pos:i+1, name:f.name, color:f.color, points:f.points})),
+    nextRace: nextRace ? {
+      num: idx+2,
+      label: `${nextRace.group} – ${TYPE_LABELS[nextRace.type]}`,
+      type: nextRace.type,
+    } : null,
+    schedule: nightState.races.map((nr,i)=>({
+      num: i+1,
+      label: `${nr.group} – ${TYPE_LABELS[nr.type]}`,
+      type: nr.type,
+      done: i < idx+1,
+      current: i === idx,
+    })),
+  });
+}
+
+function broadcastSchedule() {
+  const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+  const idx = nightState.currentIdx;
+  broadcast('schedule_next', {
+    nightTitle,
+    schedule: nightState.races.map((nr,i)=>({
+      num: i+1,
+      label: `${nr.group} – ${TYPE_LABELS[nr.type]}`,
+      type: nr.type,
+      done: i < idx,
+      current: i === idx,
+      next: i === idx+1,
+    })),
+  });
+}
+
+function broadcastSummary() {
+  const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+  broadcast('summary', {
+    nightTitle,
+    results: nightState.raceResults.map((res,i)=>{
+      if(!res) return {num:i+1, label:nightState.races[i]?.group+' – '+TYPE_LABELS[nightState.races[i]?.type], skipped:true, results:[]};
+      return {
+        num: i+1,
+        label: `${res.raceConfig.group} – ${TYPE_LABELS[res.raceConfig.type]}`,
+        type: res.raceConfig.type,
+        results: res.finishData.map((f,j)=>({pos:j+1, name:f.name, color:f.color, points:f.points})),
+      };
+    }),
+  });
+}
+
+// Patch existing functions to emit broadcasts
+const _origChaseAdvance = chaseAdvance;
+const _origMadisonAdvance = madisonAdvance;
+const _origUnknownAdvance = unknownAdvance;
+const _origEliminateRider = eliminateRider;
+const _origShowPage = showPage;
+
+// Wrap advance functions
+window.chaseAdvance = function() { _origChaseAdvance(); broadcastCurrentRaceState(); };
+window.madisonAdvance = function() { _origMadisonAdvance(); broadcastCurrentRaceState(); };
+window.unknownAdvance = function() { _origUnknownAdvance(); broadcastCurrentRaceState(); };
+window.eliminateRider = function(ri) { _origEliminateRider(ri); broadcastCurrentRaceState(); };
+
+// Wrap showResults to also broadcast
+const _SR = showResults;
+window.showResults = function(raceConfig, finishData, isMadison=false) {
+  _SR(raceConfig, finishData, isMadison);
+  broadcastResults(raceConfig, finishData);
+};
+
+// Wrap proceedToNextRace to broadcast schedule view between races
+const _origProceed = proceedToNextRace;
+window.proceedToNextRace = function() {
+  broadcastSchedule();
+  setTimeout(()=>{
+    _origProceed();
+    setTimeout(broadcastCurrentRaceState, 100);
+  }, 2500); // show schedule on overlay for 2.5s then race resumes
+};
+
+function obsFlash() {
+  const dot = document.getElementById('obs-dot');
+  const lbl = document.getElementById('obs-label');
+  if(!dot) return;
+  dot.style.background = 'var(--success)';
+  dot.style.boxShadow = '0 0 8px var(--success)';
+  if(lbl) { lbl.textContent = 'OBS SYNCED'; lbl.style.color = 'var(--success)'; }
+  setTimeout(()=>{
+    dot.style.background = 'var(--accent)';
+    dot.style.boxShadow = '0 0 6px var(--accent)';
+    if(lbl) { lbl.textContent = 'OBS LIVE'; lbl.style.color = 'var(--accent)'; }
+  }, 1200);
+}
+
+// Wrap loadRace to auto-broadcast when a race starts
+const _origLoadRace = loadRace;
+window.loadRace = function(idx) {
+  _origLoadRace(idx);
+  setTimeout(()=>{ broadcastCurrentRaceState(); obsFlash(); }, 150);
+};
+
+
+
+// Overlay control panel (injected into header later)
+function overlayGoLive() {
+  broadcastCurrentRaceState();
+}
+
+// ══════════════════════════════════════════════════════
+// INIT — load a sample schedule
+// ══════════════════════════════════════════════════════
+(function init(){
+  showPage('page-schedule');
+  // Start with a couple of example races
+  addRace('chase','Junior A');
+  addRace('elimination','SemiPro B');
+  addRace('madison','Pro');
+  // Close them all by default
+  document.querySelectorAll('.race-entry').forEach(e=>e.classList.remove('open'));
+})();
+</script>
+</body>
+</html>

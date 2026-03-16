@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VeloTrack OBS Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ── OBS: transparent background, 1920×1080 canvas ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+:root {
+  --gold: #ffd700;
+  --silver: #b8c8d8;
+  --bronze: #cd7f32;
+  --accent: #00e5ff;
+  --accent2: #ff6b00;
+  --bg-panel: rgba(7, 9, 14, 0.92);
+  --bg-row:   rgba(13, 17, 24, 0.88);
+  --border:   rgba(28, 43, 66, 0.9);
+  --text:     #c8d8f0;
+  --text-dim: #4a6080;
+  --success:  #00e096;
+  --danger:   #ff3355;
+}
+
+/* ══════════════ PANELS ══════════════ */
+
+/* All panels share a slide-in/out system */
+.panel {
+  position: absolute;
+  display: none;
+  animation: slideIn .45s cubic-bezier(.22,1,.36,1) both;
+}
+.panel.leaving {
+  animation: slideOut .35s cubic-bezier(.55,0,1,.45) both;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-20px); }
+}
+
+/* ══════════════
+   BOTTOM-LEFT CORNER: Race scoreboard / leaderboard
+   Used during: chase (rider list), madison (lb), elimination (remaining)
+══════════════ */
+#panel-race {
+  bottom: 40px;
+  left: 40px;
+  width: 500px;
+}
+
+.race-panel-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+
+.race-panel-header {
+  background: rgba(0,0,0,0.6);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.race-panel-header::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent2), var(--accent));
+}
+
+.rph-event {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.rph-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 3px;
+  color: #fff;
+  line-height: 1.1;
+}
+.rph-right {
+  text-align: right;
+}
+.lap-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  color: #fff;
+  line-height: 1;
+}
+.lap-badge.warn { color: var(--accent2); text-shadow: 0 0 16px rgba(255,107,0,.6); }
+.lap-badge.final { color: var(--gold); text-shadow: 0 0 20px rgba(255,215,0,.7); }
+.lap-badge-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  text-align: right;
+}
+
+/* Chase: simple rider list */
+.chase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid rgba(28,43,66,.5);
+}
+.chase-row:last-child { border-bottom: none; }
+.cr-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cr-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+/* Madison: leaderboard rows */
+.lb-row-ov {
+  display: grid;
+  grid-template-columns: 34px 1fr 70px 70px;
+  padding: 8px 14px;
+  align-items: center;
+  border-bottom: 1px solid rgba(28,43,66,.5);
+  position: relative;
+  overflow: hidden;
+  transition: background .3s;
+}
+.lb-row-ov:last-child { border-bottom: none; }
+.lb-row-ov::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--tc);
+}
+.lb-row-ov.rank1 { background: rgba(255,215,0,.04); }
+
+.lb-pos-ov {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-dim);
+}
+.lb-pos-ov.p1 { color: var(--gold); }
+.lb-pos-ov.p2 { color: var(--silver); }
+.lb-pos-ov.p3 { color: var(--bronze); }
+
+.lb-team-ov {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lb-tdot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.lb-tname {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.lb-stat-ov {
+  text-align: right;
+}
+.lb-stat-ov .v {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  color: var(--accent);
+}
+.lb-stat-ov .l {
+  font-size: 0.55rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Elimination: remaining riders */
+.elim-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px;
+}
+.elim-pill {
+  background: rgba(0,229,255,.06);
+  border: 1px solid rgba(0,229,255,.18);
+  border-radius: 3px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+  transition: all .4s;
+}
+.elim-pill::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--rc);
+}
+.elim-pill.eliminated {
+  opacity: .25;
+  text-decoration: line-through;
+  border-color: rgba(255,51,85,.15);
+  background: rgba(255,51,85,.04);
+}
+
+/* ══════════════
+   BOTTOM-CENTER: Lap counter (chase/unknown stand-alone)
+══════════════ */
+#panel-lap {
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.lap-center-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 28px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  min-width: 180px;
+}
+.lap-center-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 5rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255,255,255,.15);
+  transition: color .3s;
+}
+.lap-center-num.warn  { color: var(--accent2); text-shadow: 0 0 30px rgba(255,107,0,.5); }
+.lap-center-num.final { color: var(--gold);    text-shadow: 0 0 30px rgba(255,215,0,.6); }
+.lap-center-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ══════════════
+   TOP-RIGHT: Event info ticker
+══════════════ */
+#panel-event-ticker {
+  top: 30px;
+  right: 40px;
+  width: 420px;
+}
+.ticker-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 18px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ticker-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.5rem;
+  color: var(--accent);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.ticker-of {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.ticker-info { flex: 1; }
+.ticker-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.ticker-type {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+.ticker-next {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.ticker-next b { color: var(--text); }
+
+/* ══════════════
+   CENTER-SCREEN: Race results (shown after each race)
+══════════════ */
+#panel-results {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 680px;
+}
+.results-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+.results-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent), var(--accent2));
+}
+.results-header {
+  padding: 16px 24px 12px;
+  background: rgba(0,0,0,.5);
+  border-bottom: 1px solid var(--border);
+}
+.results-race-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+.results-race-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 4px;
+  color: #fff;
+  line-height: 1;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 100px;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(28,43,66,.5);
+  position: relative;
+  overflow: hidden;
+  transition: background .3s;
+}
+.result-row:last-child { border-bottom: none; }
+.result-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--rc, transparent);
+}
+.result-row.r1 { background: rgba(255,215,0,.05); }
+
+.res-pos {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--text-dim);
+}
+.res-pos.p1 { color: var(--gold); }
+.res-pos.p2 { color: var(--silver); }
+.res-pos.p3 { color: var(--bronze); }
+
+.res-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.res-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.res-pts {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--accent);
+  text-align: right;
+}
+
+.results-next-up {
+  padding: 10px 24px;
+  background: rgba(0,229,255,.04);
+  border-top: 1px solid rgba(0,229,255,.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rnu-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.rnu-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: #fff;
+}
+
+/* ══════════════
+   CENTER-SCREEN: Schedule view (between races)
+══════════════ */
+#panel-schedule {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 620px;
+}
+.schedule-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+.schedule-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+}
+.schedule-header {
+  padding: 14px 20px;
+  background: rgba(0,0,0,.5);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sch-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+  color: var(--accent);
+}
+.sch-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+}
+.schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(28,43,66,.4);
+  transition: background .3s;
+  position: relative;
+  overflow: hidden;
+}
+.schedule-item:last-child { border-bottom: none; }
+.schedule-item.done { opacity: .35; }
+.schedule-item.current {
+  background: rgba(0,229,255,.06);
+  border-color: rgba(0,229,255,.15);
+}
+.schedule-item.current::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.schedule-item.next-up {
+  background: rgba(255,107,0,.06);
+}
+.schedule-item.next-up::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent2);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+.si-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  color: var(--text-dim);
+  width: 28px;
+  flex-shrink: 0;
+}
+.schedule-item.current .si-num { color: var(--accent); }
+.schedule-item.next-up .si-num { color: var(--accent2); }
+
+.si-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.badge-chase      { background:rgba(0,229,255,.12); color:var(--accent);  border:1px solid rgba(0,229,255,.2); }
+.badge-elimination{ background:rgba(255,51,85,.12);  color:#ff3355;        border:1px solid rgba(255,51,85,.2); }
+.badge-madison    { background:rgba(168,85,247,.12); color:#a855f7;        border:1px solid rgba(168,85,247,.2); }
+.badge-unknown    { background:rgba(255,107,0,.12);  color:var(--accent2); border:1px solid rgba(255,107,0,.2); }
+
+.si-label {
+  flex: 1;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.si-status {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.schedule-item.done .si-status { color: var(--success); }
+.schedule-item.current .si-status { color: var(--accent); }
+.schedule-item.next-up .si-status { color: var(--accent2); }
+
+/* ══════════════
+   CENTER: Summary / End of Night
+══════════════ */
+#panel-summary {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 700px;
+  max-height: 900px;
+}
+.summary-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+.summary-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--accent2), var(--gold));
+}
+.summary-night-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.5rem;
+  letter-spacing: 6px;
+  color: var(--gold);
+  text-align: center;
+  text-shadow: 0 0 30px rgba(255,215,0,.35);
+  padding: 20px 20px 6px;
+}
+.summary-complete {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 14px;
+}
+.summary-race-block {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+}
+.srb-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.srb-num { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:var(--text-dim); width:24px; }
+.srb-name { font-size:0.9rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; flex:1; }
+.srb-rows { display:flex; flex-direction:column; gap:3px; }
+.srb-row {
+  display:flex; align-items:center; gap:8px;
+  font-size:0.8rem; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+}
+.srb-pos { font-family:'Bebas Neue',sans-serif; font-size:1rem; color:var(--text-dim); width:26px; }
+.srb-pos.p1{color:var(--gold);}
+.srb-pos.p2{color:var(--silver);}
+.srb-pos.p3{color:var(--bronze);}
+.srb-dot  { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.srb-pts  { margin-left:auto; font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--accent); }
+
+/* ══════════════
+   LOGO WATERMARK (always visible, top-left)
+══════════════ */
+#logo-mark {
+  position: absolute;
+  top: 30px;
+  left: 40px;
+}
+.logo-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 4px;
+  color: rgba(0,229,255,.5);
+  text-shadow: 0 0 12px rgba(0,229,255,.3);
+  line-height: 1;
+}
+.logo-text span { color: rgba(255,107,0,.5); }
+
+/* ══════════════
+   IDLE / no data
+══════════════ */
+#panel-idle {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  text-align: center;
+  display: block;
+}
+.idle-box {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 4px;
+  color: rgba(0,229,255,.2);
+}
+
+/* Sprint flash notification */
+#sprint-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  pointer-events: none;
+}
+.sf-box {
+  background: rgba(255,215,0,.12);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 20px 48px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 60px rgba(255,215,0,.3);
+}
+.sf-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 4px;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.sf-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  letter-spacing: 6px;
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(255,215,0,.6);
+}
+@keyframes sfAnim {
+  0%   { opacity:0; transform:translate(-50%,-50%) scale(.85); }
+  15%  { opacity:1; transform:translate(-50%,-50%) scale(1.05); }
+  30%  { transform:translate(-50%,-50%) scale(1); }
+  75%  { opacity:1; }
+  100% { opacity:0; transform:translate(-50%,-50%) scale(1); }
+}
+#sprint-flash.show { display:block; animation:sfAnim 2.8s ease forwards; }
+
+</style>
+</head>
+<body>
+
+<!-- Always-on logo watermark -->
+<div id="logo-mark">
+  <div class="logo-text">VELO<span>·</span>TRACK</div>
+</div>
+
+<!-- ── PANELS ── -->
+
+<!-- Idle state -->
+<div class="panel" id="panel-idle" style="display:block;">
+  <div class="idle-box">WAITING FOR RACE DATA…</div>
+</div>
+
+<!-- Live race info + lap counter (bottom-left) -->
+<div class="panel" id="panel-race">
+  <div class="race-panel-box">
+    <div class="race-panel-header">
+      <div>
+        <div class="rph-event" id="rph-event"></div>
+        <div class="rph-title" id="rph-title"></div>
+      </div>
+      <div class="rph-right" id="rph-right"></div>
+    </div>
+    <div id="rph-body"></div>
+  </div>
+</div>
+
+<!-- Sprint flash overlay -->
+<div id="sprint-flash">
+  <div class="sf-box">
+    <div class="sf-label">SPRINT LAP</div>
+    <div class="sf-title" id="sf-lap">LAP 80</div>
+  </div>
+</div>
+
+<!-- Event ticker top-right -->
+<div class="panel" id="panel-event-ticker">
+  <div class="ticker-box">
+    <div>
+      <div class="ticker-num" id="tk-num">1</div>
+      <div class="ticker-of" id="tk-of">OF 12</div>
+    </div>
+    <div class="ticker-info">
+      <div class="ticker-title" id="tk-title"></div>
+      <div class="ticker-type" id="tk-type"></div>
+      <div class="ticker-next" id="tk-next"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Results (center, shown after each race) -->
+<div class="panel" id="panel-results">
+  <div class="results-box">
+    <div class="results-header">
+      <div class="results-race-label" id="res-label"></div>
+      <div class="results-race-title" id="res-title"></div>
+    </div>
+    <div id="res-rows"></div>
+    <div class="results-next-up" id="res-next" style="display:none;">
+      <span class="rnu-label">UP NEXT →</span>
+      <span class="rnu-title" id="res-next-title"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule (center, shown between races) -->
+<div class="panel" id="panel-schedule">
+  <div class="schedule-box">
+    <div class="schedule-header">
+      <div>
+        <div class="sch-title" id="sch-title">RACE SCHEDULE</div>
+      </div>
+      <div class="sch-subtitle">UP NEXT</div>
+    </div>
+    <div id="sch-items"></div>
+  </div>
+</div>
+
+<!-- Summary (end of night) -->
+<div class="panel" id="panel-summary">
+  <div class="summary-box" style="position:relative;">
+    <div class="summary-night-title" id="sum-title"></div>
+    <div class="summary-complete">RACE NIGHT COMPLETE</div>
+    <div id="sum-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// OVERLAY CONTROLLER
+// Reads from localStorage key 'velotrack_overlay'
+// ═══════════════════════════════════════════════════
+
+const TYPE_LABELS = {
+  chase: 'Chase Race',
+  elimination: 'Elimination',
+  madison: 'Madison',
+  unknown: 'Unknown Distance',
+};
+const TYPE_BADGE = {
+  chase: 'badge-chase',
+  elimination: 'badge-elimination',
+  madison: 'badge-madison',
+  unknown: 'badge-unknown',
+};
+
+const ALL_PANELS = ['panel-idle','panel-race','panel-results','panel-schedule','panel-summary','panel-event-ticker'];
+let currentView = 'idle';
+let lastTs = 0;
+
+function showPanels(...ids) {
+  ALL_PANELS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (ids.includes(id)) {
+      if (el.style.display === 'none' || !el.style.display) {
+        el.style.display = 'block';
+        el.classList.remove('leaving');
+        void el.offsetWidth;
+        // Re-trigger animation
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      }
+    } else {
+      if (el.style.display !== 'none') {
+        el.classList.add('leaving');
+        setTimeout(() => {
+          el.style.display = 'none';
+          el.classList.remove('leaving');
+        }, 350);
+      }
+    }
+  });
+}
+
+function handleState(payload) {
+  if (!payload || payload.ts === lastTs) return;
+  lastTs = payload.ts;
+  const { view, data } = payload;
+  currentView = view;
+
+  if (view === 'race_active')      renderRaceActive(data);
+  else if (view === 'race_results') renderResults(data);
+  else if (view === 'schedule_next') renderSchedule(data);
+  else if (view === 'summary')      renderSummary(data);
+  else                              renderIdle();
+}
+
+// ── RACE ACTIVE ──
+function renderRaceActive(d) {
+  // Event ticker
+  document.getElementById('tk-num').textContent = d.eventNum;
+  document.getElementById('tk-of').textContent = `OF ${d.totalEvents}`;
+  document.getElementById('tk-title').textContent = d.raceTitle;
+  document.getElementById('tk-type').textContent = TYPE_LABELS[d.raceType] || d.raceType;
+  if (d.nextRaces && d.nextRaces.length > 0) {
+    document.getElementById('tk-next').innerHTML = `NEXT: <b>${d.nextRaces[0].label}</b>`;
+  } else {
+    document.getElementById('tk-next').textContent = 'FINAL EVENT';
+  }
+
+  document.getElementById('rph-event').textContent = `EVENT ${d.eventNum} OF ${d.totalEvents}`;
+  document.getElementById('rph-title').textContent = d.raceTitle;
+
+  if (d.raceType === 'chase') {
+    const lapsLeft = d.lapsLeft;
+    let cls = '';
+    if (lapsLeft <= 5 && lapsLeft > 0) cls = 'warn';
+    if (lapsLeft <= 0) cls = 'final';
+    document.getElementById('rph-right').innerHTML = `
+      <div class="lap-badge ${cls}">${lapsLeft}</div>
+      <div class="lap-badge-label">LAPS TO GO</div>`;
+    document.getElementById('rph-body').innerHTML = (d.riders || []).map(rd => `
+      <div class="chase-row">
+        <div class="cr-dot" style="background:${rd.color};box-shadow:0 0 5px ${rd.color}"></div>
+        <div class="cr-name">${esc(rd.name)}</div>
+      </div>`).join('');
+
+  } else if (d.raceType === 'unknown') {
+    document.getElementById('rph-right').innerHTML = `
+      <div class="lap-badge">${d.lapsDone}</div>
+      <div class="lap-badge-label">LAP</div>`;
+    document.getElementById('rph-body').innerHTML = (d.riders || []).map(rd => `
+      <div class="chase-row">
+        <div class="cr-dot" style="background:${rd.color};box-shadow:0 0 5px ${rd.color}"></div>
+        <div class="cr-name">${esc(rd.name)}</div>
+      </div>`).join('');
+
+  } else if (d.raceType === 'elimination') {
+    document.getElementById('rph-right').innerHTML = `
+      <div class="lap-badge" style="color:var(--danger)">${(d.riders||[]).filter(r=>!r.eliminated).length}</div>
+      <div class="lap-badge-label">REMAINING</div>`;
+    document.getElementById('rph-body').innerHTML = `<div class="elim-grid">${
+      (d.riders||[]).map(rd=>`
+        <div class="elim-pill ${rd.eliminated?'eliminated':''}" style="--rc:${rd.color}">${esc(rd.name)}</div>
+      `).join('')
+    }</div>`;
+
+  } else if (d.raceType === 'madison') {
+    const lapsLeft = d.lapsLeft;
+    let cls = '';
+    if (lapsLeft <= 5 && lapsLeft > 0) cls = 'warn';
+    if (lapsLeft <= 0) cls = 'final';
+    const sprintInfo = d.toSprint && d.toSprint <= 5
+      ? `<div class="lap-badge-label" style="color:var(--accent2)">SPRINT IN ${d.toSprint}</div>`
+      : '';
+    document.getElementById('rph-right').innerHTML = `
+      <div class="lap-badge ${cls}">${lapsLeft}</div>
+      <div class="lap-badge-label">LAPS TO GO</div>
+      ${sprintInfo}`;
+    document.getElementById('rph-body').innerHTML = (d.leaderboard||[]).map((t,i)=>{
+      const pos = i+1;
+      const pc = pos<=3 ? `p${pos}` : '';
+      return `<div class="lb-row-ov ${pos===1?'rank1':''}" style="--tc:${t.color}">
+        <div class="lb-pos-ov ${pc}">${pos}</div>
+        <div class="lb-team-ov">
+          <div class="lb-tdot" style="background:${t.color};box-shadow:0 0 5px ${t.color}"></div>
+          <div class="lb-tname">${esc(t.name)}</div>
+        </div>
+        <div class="lb-stat-ov"><div class="v">${t.sprintPts}</div><div class="l">sprint</div></div>
+        <div class="lb-stat-ov"><div class="v" style="color:#fff">${t.total}</div><div class="l">total</div></div>
+      </div>`;
+    }).join('');
+
+    // Sprint warning flash
+    if (d.toSprint === 1) triggerSprintFlash(lapsLeft + 1);
+  }
+
+  showPanels('panel-race', 'panel-event-ticker');
+}
+
+// ── RESULTS ──
+function renderResults(d) {
+  document.getElementById('res-label').textContent = `EVENT ${d.eventNum} OF ${d.totalEvents} · RESULTS`;
+  document.getElementById('res-title').textContent = d.raceTitle;
+
+  const posLabels = ['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH','9TH','10TH'];
+  document.getElementById('res-rows').innerHTML = (d.results||[]).slice(0,8).map((r,i)=>{
+    const pos = i+1;
+    const pc = pos<=3?`p${pos}`:'';
+    return `<div class="result-row ${pos===1?'r1':''}" style="--rc:${r.color}">
+      <div class="res-pos ${pc}">${posLabels[i]||pos}</div>
+      <div class="res-name">
+        <div class="res-dot" style="background:${r.color};box-shadow:0 0 6px ${r.color}"></div>
+        ${esc(r.name)}
+      </div>
+      <div class="res-pts">${r.points>0?`+${r.points}`:''}</div>
+    </div>`;
+  }).join('');
+
+  if (d.nextRace) {
+    document.getElementById('res-next').style.display = 'flex';
+    document.getElementById('res-next-title').textContent = `${d.nextRace.num}. ${d.nextRace.label}`;
+  } else {
+    document.getElementById('res-next').style.display = 'none';
+  }
+
+  showPanels('panel-results');
+}
+
+// ── SCHEDULE ──
+function renderSchedule(d) {
+  document.getElementById('sch-title').textContent = d.nightTitle || 'RACE SCHEDULE';
+  const items = (d.schedule||[]).slice(0, 12);
+  document.getElementById('sch-items').innerHTML = items.map(item => {
+    let cls = '';
+    let statusTxt = '';
+    if (item.done)    { cls='done';     statusTxt='✓ DONE'; }
+    if (item.current) { cls='current';  statusTxt='● RACING'; }
+    if (item.next)    { cls='next-up';  statusTxt='▶ NEXT UP'; }
+    const badgeCls = TYPE_BADGE[item.type] || 'badge-chase';
+    return `<div class="schedule-item ${cls}">
+      <span class="si-num">${item.num}</span>
+      <span class="si-badge ${badgeCls}">${TYPE_LABELS[item.type]||item.type}</span>
+      <span class="si-label">${esc(item.label.replace(/ – .*/,''))}</span>
+      <span class="si-status">${statusTxt}</span>
+    </div>`;
+  }).join('');
+
+  showPanels('panel-schedule');
+}
+
+// ── SUMMARY ──
+function renderSummary(d) {
+  document.getElementById('sum-title').textContent = d.nightTitle || 'RACE NIGHT';
+  const posLabels = ['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH'];
+  document.getElementById('sum-body').innerHTML = (d.results||[]).map(r=>{
+    if (r.skipped) return `<div class="summary-race-block"><div class="srb-title"><span class="srb-num">${r.num}</span><span class="srb-name" style="color:var(--text-dim)">${esc(r.label)} — SKIPPED</span></div></div>`;
+    return `<div class="summary-race-block">
+      <div class="srb-title">
+        <span class="srb-num">${r.num}</span>
+        <span class="si-badge ${TYPE_BADGE[r.type]||'badge-chase'}">${TYPE_LABELS[r.type]||r.type}</span>
+        <span class="srb-name">${esc(r.label.replace(/ – .*/,''))}</span>
+      </div>
+      <div class="srb-rows">${(r.results||[]).slice(0,3).map((res,i)=>{
+        const pc = i<3?`p${i+1}`:'';
+        return `<div class="srb-row">
+          <span class="srb-pos ${pc}">${posLabels[i]||i+1}</span>
+          <span class="srb-dot" style="background:${res.color};box-shadow:0 0 4px ${res.color}"></span>
+          <span style="flex:1">${esc(res.name)}</span>
+          ${res.points>0?`<span class="srb-pts">+${res.points}pts</span>`:''}
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+
+  showPanels('panel-summary');
+}
+
+function renderIdle() {
+  showPanels('panel-idle');
+}
+
+// ── SPRINT FLASH ──
+function triggerSprintFlash(lap) {
+  const el = document.getElementById('sprint-flash');
+  document.getElementById('sf-lap').textContent = `LAP ${lap}`;
+  el.className = '';
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3000);
+}
+
+// ── POLL LOCALSTORAGE ──
+function poll() {
+  try {
+    const raw = localStorage.getItem('velotrack_overlay');
+    if (raw) {
+      const payload = JSON.parse(raw);
+      handleState(payload);
+    }
+  } catch(e) {}
+}
+
+// Listen for storage events (cross-tab real-time)
+window.addEventListener('storage', (e) => {
+  if (e.key === 'velotrack_overlay' && e.newValue) {
+    try { handleState(JSON.parse(e.newValue)); } catch(e) {}
+  }
+});
+
+// Also poll as fallback (OBS browser source may need this)
+setInterval(poll, 500);
+poll(); // immediate first read
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
