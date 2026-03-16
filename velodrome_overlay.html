@@ -898,7 +898,6 @@ function showPanels(...ids) {
         el.style.display = 'block';
         el.classList.remove('leaving');
         void el.offsetWidth;
-        // Re-trigger animation
         el.style.animation = 'none';
         void el.offsetWidth;
         el.style.animation = '';
@@ -915,20 +914,6 @@ function showPanels(...ids) {
   });
 }
 
-function handleState(payload) {
-  if (!payload || payload.ts === lastTs) return;
-  lastTs = payload.ts;
-  const { view, data } = payload;
-  currentView = view;
-
-  if (view === 'race_active')      renderRaceActive(data);
-  else if (view === 'race_results') renderResults(data);
-  else if (view === 'schedule_next') renderSchedule(data);
-  else if (view === 'summary')      renderSummary(data);
-  else                              renderIdle();
-}
-
-// ── RACE ACTIVE ──
 function renderRaceActive(d) {
   // Event ticker
   document.getElementById('tk-num').textContent = d.eventNum;
