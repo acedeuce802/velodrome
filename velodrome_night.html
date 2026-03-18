@@ -1341,11 +1341,10 @@ function confirmClearData() {
 function backToSchedule() {
   document.getElementById('header-sub').textContent = 'BUILD YOUR SCHEDULE';
   clearSavedNight();
-  // Reload saved schedule into builder
-  const saved = localStorage.getItem(SAVE_KEY_SCHEDULE);
-  if (saved) {
-    try { restoreSchedule(JSON.parse(saved)); } catch(e) {}
-  }
+  clearHeartbeat();
+  broadcast('idle', {});
+  renderSchedule();
+  document.querySelectorAll('.race-entry').forEach(e => e.classList.remove('open'));
   showPage('page-schedule');
 }
 
@@ -1624,7 +1623,46 @@ function obsFlash() {
 const _origLoadRace = loadRace;
 window.loadRace = function(idx) {
   _origLoadRace(idx);
-  setTimeout(()=>{ broadcastCurrentRaceState(); obsFlash(); }, 150);
+  setTimeout(()=>{
+    broadcastCurrentRaceState();
+    obsFlash();
+    // Heartbeat sends fresh race state — uses a function so lap count stays current
+    setHeartbeat('race_active', () => {
+      // Build the current race data inline
+      if (!activeRace) return {};
+      const r = activeRace.r;
+      const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+      const ridx = nightState.currentIdx;
+      const nextRaces = nightState.races.slice(ridx+1, ridx+4).map((nr,i)=>({
+        num: ridx+2+i, label:`${nr.group} – ${TYPE_LABELS[nr.type]}`, type:nr.type,
+      }));
+      if (activeRace.type==='chase'||activeRace.type==='unknown') {
+        return { nightTitle, eventNum:ridx+1, totalEvents:nightState.races.length,
+          raceTitle:`${r.group} – ${TYPE_LABELS[r.type]}`, raceType:activeRace.type,
+          lapsLeft:activeRace.type==='chase'?activeRace.laps-activeRace.lapsDone:null,
+          lapsDone:activeRace.type==='unknown'?activeRace.lapsDone:null,
+          riders:r.riders.map(rd=>({name:rd.name,color:rd.color})), nextRaces };
+      } else if (activeRace.type==='elimination') {
+        return { nightTitle, eventNum:ridx+1, totalEvents:nightState.races.length,
+          raceTitle:`${r.group} – ${TYPE_LABELS[r.type]}`, raceType:'elimination',
+          riders:r.riders.map((rd,i)=>({name:rd.name,color:rd.color,eliminated:activeRace.eliminated.includes(i)})),
+          nextRaces };
+      } else if (activeRace.type==='madison') {
+        const sorted=[...activeRace.teams].sort((a,b)=>{
+          const ta=a.sprintPts+a.finishPts,tb=b.sprintPts+b.finishPts;
+          return tb!==ta?tb-ta:b.sprintsWon-a.sprintsWon;
+        });
+        return { nightTitle, eventNum:ridx+1, totalEvents:nightState.races.length,
+          raceTitle:`${r.group} – ${TYPE_LABELS[r.type]}`, raceType:'madison',
+          lapsLeft:activeRace.laps-activeRace.lapsDone,
+          toSprint:activeRace.r.sprintInterval-(activeRace.lapsDone%activeRace.r.sprintInterval),
+          leaderboard:sorted.map((t,i)=>({pos:i+1,name:t.name,color:t.color,
+            sprintPts:t.sprintPts,sprintsWon:t.sprintsWon,total:t.sprintPts+t.finishPts})),
+          nextRaces };
+      }
+      return {};
+    });
+  }, 150);
 };
 
 function overlayGoLive() {
@@ -1638,27 +1676,25 @@ if (navigator.locks) {
   });
 }
 
-// Heartbeat — re-broadcast current state every 5s as a safety net.
-// Tracks what was last broadcast so results/summary are never overwritten by a stale race_active.
-let lastBroadcastView = 'idle';
-let lastBroadcastResults = null;
+// Heartbeat — re-broadcast the correct state every 5s.
+// Uses an explicit tracker updated at the right call sites.
+let heartbeatState = null; // { view, dataFn } — dataFn returns fresh data each time
 
-const _origBroadcast = broadcast;
-window.broadcast = function(view, data) {
-  lastBroadcastView = view;
-  if (view === 'race_results') lastBroadcastResults = { view, data };
-  if (view === 'summary')      lastBroadcastResults = { view, data };
-  if (view === 'race_active')  lastBroadcastResults = null;
-  _origBroadcast(view, data);
-};
+function setHeartbeat(view, dataFn) {
+  heartbeatState = { view, dataFn };
+}
+function clearHeartbeat() {
+  heartbeatState = null;
+}
 
 setInterval(() => {
-  if (lastBroadcastResults) {
-    // Re-send results or summary — don't let race_active overwrite it
-    _origBroadcast(lastBroadcastResults.view, lastBroadcastResults.data);
-  } else if (activeRace && lastBroadcastView === 'race_active') {
-    broadcastCurrentRaceState();
-  }
+  if (!heartbeatState) return;
+  try {
+    const data = typeof heartbeatState.dataFn === 'function'
+      ? heartbeatState.dataFn()
+      : heartbeatState.dataFn;
+    broadcast(heartbeatState.view, data);
+  } catch(e) {}
 }, 5000);
 
 // ══════════════════════════════════════════════════════
@@ -1879,6 +1915,21 @@ window.showResults = function(raceConfig, finishData, isMadison=false) {
   _origShowResults(raceConfig, finishData, isMadison);
   broadcastResults(raceConfig, finishData);
   saveNightState();
+  // Hold results on overlay until next race starts
+  const resultsData = {
+    nightTitle: document.getElementById('night-title-input').value || 'Race Night',
+    eventNum: nightState.currentIdx+1,
+    totalEvents: nightState.races.length,
+    raceTitle: `${raceConfig.group} – ${TYPE_LABELS[raceConfig.type]}`,
+    raceType: raceConfig.type,
+    results: finishData.map((f,i)=>({pos:i+1,name:f.name,color:f.color,points:f.points})),
+    nextRace: nightState.races[nightState.currentIdx+1] ? {
+      num: nightState.currentIdx+2,
+      label: `${nightState.races[nightState.currentIdx+1].group} – ${TYPE_LABELS[nightState.races[nightState.currentIdx+1].type]}`,
+      type: nightState.races[nightState.currentIdx+1].type,
+    } : null,
+  };
+  setHeartbeat('race_results', resultsData);
 };
 
 const _origShowSummary = showSummary;
@@ -1887,6 +1938,17 @@ window.showSummary = function() {
   broadcastSummary();
   clearSavedNight();
   try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e) {}
+  // Hold summary on overlay
+  const nightTitle = document.getElementById('night-title-input').value || 'Race Night';
+  setHeartbeat('summary', {
+    nightTitle,
+    results: nightState.raceResults.map((res,i)=>{
+      if(!res) return {num:i+1,label:nightState.races[i]?.group+' – '+TYPE_LABELS[nightState.races[i]?.type],skipped:true,results:[]};
+      return { num:i+1, label:`${res.raceConfig.group} – ${TYPE_LABELS[res.raceConfig.type]}`,
+        type:res.raceConfig.type,
+        results:res.finishData.map((f,j)=>({pos:j+1,name:f.name,color:f.color,points:f.points})) };
+    }),
+  });
 };
 
 // ══════════════════════════════════════════════════════
