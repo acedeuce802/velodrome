@@ -14,6 +14,7 @@ html, body {
   background: transparent;
   font-family: 'Barlow Condensed', sans-serif;
   color: #ffffff;
+  position: relative;
 }
 
 :root {
@@ -666,7 +667,6 @@ html, body {
   left: 50%;
   transform: translate(-50%,-50%);
   text-align: center;
-  display: block;
 }
 .idle-box {
   font-family: 'Bebas Neue', sans-serif;
@@ -902,17 +902,20 @@ function showPanels(...ids) {
   ALL_PANELS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
+    const isHidden = el.style.display === 'none';
+    const isLeaving = el.classList.contains('leaving');
+
     if (ids.includes(id)) {
-      // Always force show — clear any leaving state
-      el.classList.remove('leaving');
-      el.style.display = 'block';
-      // Re-trigger slide-in animation
-      el.style.animation = 'none';
-      void el.offsetWidth;
-      el.style.animation = '';
+      if (isHidden || isLeaving) {
+        el.classList.remove('leaving');
+        el.style.display = 'block';
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      }
+      // Already visible and not leaving — leave it alone
     } else {
-      // Hide with fade-out animation
-      if (el.style.display !== 'none') {
+      if (!isHidden && !isLeaving) {
         el.classList.add('leaving');
         setTimeout(() => {
           el.style.display = 'none';
