@@ -723,6 +723,7 @@ html, body {
 <!-- Always-on logo watermark -->
 <div id="logo-mark">
   <div class="logo-text">VELO<span>·</span>TRACK</div>
+  <div id="overlay-debug" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,229,255,0.25);letter-spacing:1px;margin-top:4px;"></div>
 </div>
 
 <!-- ── PANELS ── -->
@@ -730,7 +731,6 @@ html, body {
 <!-- Idle state -->
 <div class="panel" id="panel-idle" style="display:block;">
   <div class="idle-box">WAITING FOR RACE DATA…</div>
-  <div id="overlay-debug" style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(0,229,255,0.3);text-align:center;letter-spacing:2px;"></div>
 </div>
 
 <!-- Live race info + lap counter (bottom-left) -->
@@ -856,7 +856,9 @@ async function poll() {
     // - view changed (transition between states)
     // - seq went DOWN (server restarted, seq reset to 0)
     const seqAdvanced = incomingSeq > lastSeq;
-    const seqReset    = incomingSeq >= 0 && incomingSeq < lastSeq && lastSeq > 10;
+    // Seq reset: race manager restarted/refreshed, seq dropped back
+    // Treat ANY decrease as a reset (was > 10 before which was too conservative)
+    const seqReset = incomingSeq >= 0 && incomingSeq < lastSeq;
 
     if (seqAdvanced || viewChanged || seqReset) {
       if (seqReset && payload.view === 'idle' && hasEverRendered) {
@@ -867,13 +869,12 @@ async function poll() {
       lastTs  = payload.ts || 0;
       lastSuccessfulView = payload.view;
       hasEverRendered = true;
-      // Update debug label
       const dbg = document.getElementById('overlay-debug');
-      if (dbg) dbg.textContent = `seq:${incomingSeq} view:${payload.view} ${new Date().toLocaleTimeString()}`;
+      if (dbg) dbg.textContent = `seq:${incomingSeq} ${payload.view} ${new Date().toLocaleTimeString()}`;
       handleState(payload);
     } else {
       const dbg = document.getElementById('overlay-debug');
-      if (dbg) dbg.textContent = `seq:${incomingSeq} (no change) ${new Date().toLocaleTimeString()}`;
+      if (dbg) dbg.textContent = `seq:${incomingSeq} — ${new Date().toLocaleTimeString()}`;
     }
   } catch(e) {
     pollFailCount++;
