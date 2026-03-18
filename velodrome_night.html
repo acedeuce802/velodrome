@@ -1452,8 +1452,7 @@ function setObsError(msg) {
 window.addEventListener('DOMContentLoaded', () => setTimeout(checkServer, 500));
 
 // Patch key state-change functions to auto-broadcast
-const _origShowResults = showResults;
-// We'll wrap at the call sites below instead
+// ── broadcast + persistence wrappers are consolidated below in the PERSISTENCE section ──
 
 function broadcastCurrentRaceState() {
   if (!activeRace) return;
@@ -1585,29 +1584,26 @@ const _origChaseAdvance = chaseAdvance;
 const _origMadisonAdvance = madisonAdvance;
 const _origUnknownAdvance = unknownAdvance;
 const _origEliminateRider = eliminateRider;
-const _origShowPage = showPage;
 
-// Wrap advance functions
-window.chaseAdvance = function() { _origChaseAdvance(); broadcastCurrentRaceState(); };
-window.madisonAdvance = function() { _origMadisonAdvance(); broadcastCurrentRaceState(); };
-window.unknownAdvance = function() { _origUnknownAdvance(); broadcastCurrentRaceState(); };
-window.eliminateRider = function(ri) { _origEliminateRider(ri); broadcastCurrentRaceState(); };
-
-// Wrap showResults to also broadcast
-const _SR = showResults;
-window.showResults = function(raceConfig, finishData, isMadison=false) {
-  _SR(raceConfig, finishData, isMadison);
-  broadcastResults(raceConfig, finishData);
-};
+window.chaseAdvance    = function()    { _origChaseAdvance();    broadcastCurrentRaceState(); saveNightState(); };
+window.madisonAdvance  = function()    { _origMadisonAdvance();  broadcastCurrentRaceState(); saveNightState(); };
+window.unknownAdvance  = function()    { _origUnknownAdvance();  broadcastCurrentRaceState(); saveNightState(); };
+window.eliminateRider  = function(ri)  { _origEliminateRider(ri); broadcastCurrentRaceState(); saveNightState(); };
 
 // Wrap proceedToNextRace to broadcast schedule view between races
 const _origProceed = proceedToNextRace;
 window.proceedToNextRace = function() {
-  broadcastSchedule();
-  setTimeout(()=>{
+  const isLast = nightState.currentIdx >= nightState.races.length - 1;
+  if (isLast) {
+    // Go straight to summary — no schedule flash needed
     _origProceed();
-    setTimeout(broadcastCurrentRaceState, 100);
-  }, 2500); // show schedule on overlay for 2.5s then race resumes
+  } else {
+    broadcastSchedule();
+    setTimeout(() => {
+      _origProceed();
+      setTimeout(broadcastCurrentRaceState, 100);
+    }, 2500);
+  }
 };
 
 function obsFlash() {
@@ -1631,12 +1627,22 @@ window.loadRace = function(idx) {
   setTimeout(()=>{ broadcastCurrentRaceState(); obsFlash(); }, 150);
 };
 
-
-
-// Overlay control panel (injected into header later)
 function overlayGoLive() {
   broadcastCurrentRaceState();
 }
+
+// Prevent Chrome from throttling this tab when it's in the background.
+// Without this, broadcasts slow to ~1/minute when the tab is inactive.
+if (navigator.locks) {
+  navigator.locks.request('velotrack_active', { mode: 'shared' }, () => {
+    return new Promise(() => {}); // hold lock forever
+  });
+}
+
+// Heartbeat — re-broadcast current state every 5s as a safety net
+setInterval(() => {
+  if (activeRace) broadcastCurrentRaceState();
+}, 5000);
 
 // ══════════════════════════════════════════════════════
 // PERSISTENCE — auto-save & restore via localStorage
@@ -1686,16 +1692,6 @@ function autoSaveSchedule() { saveSchedule(); }
   };
 });
 
-// Patch night state mutations to auto-save
-['chaseAdvance','chaseUndo','madisonAdvance','madisonUndo',
- 'unknownAdvance','unknownUndo','eliminateRider'].forEach(fn => {
-  const orig = window[fn];
-  if (orig) window[fn] = function(...args) {
-    const r = orig.apply(this, args);
-    saveNightState();
-    return r;
-  };
-});
 
 function restoreSchedule(saved) {
   scheduleRaces = saved.races || [];
@@ -1858,19 +1854,22 @@ function loadDefaultSchedule() {
   document.querySelectorAll('.race-entry').forEach(e=>e.classList.remove('open'));
 }
 
-// Also clear saved night when user reaches summary (race is done)
-const _origShowSummaryPersist = showSummary;
-window.showSummary = function() {
-  _origShowSummaryPersist();
-  clearSavedNight();
-  try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e) {}
+// ── Single consolidated patch for showResults and showSummary ──
+// Handles both broadcast AND persistence in one place, no duplicates.
+
+const _origShowResults = showResults;
+window.showResults = function(raceConfig, finishData, isMadison=false) {
+  _origShowResults(raceConfig, finishData, isMadison);
+  broadcastResults(raceConfig, finishData);
+  saveNightState();
 };
 
-// Save night state after results are recorded
-const _origShowResultsPersist = showResults;
-window.showResults = function(raceConfig, finishData, isMadison=false) {
-  _origShowResultsPersist(raceConfig, finishData, isMadison);
-  saveNightState();
+const _origShowSummary = showSummary;
+window.showSummary = function() {
+  _origShowSummary();
+  broadcastSummary();
+  clearSavedNight();
+  try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e) {}
 };
 
 // ══════════════════════════════════════════════════════
