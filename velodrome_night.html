@@ -1401,38 +1401,22 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // Default port is 7878 — change here and in the server script if needed.
 const LOCAL_SERVER = 'http://localhost:7878';
 
-let broadcastPending = false;
-let broadcastQueue   = null;
+let broadcastInFlight = false;
 
 function broadcast(view, data) {
   const payload = { view, data, ts: Date.now() };
   try { localStorage.setItem('velotrack_overlay', JSON.stringify(payload)); } catch(e){}
 
-  broadcastQueue = payload;
-  if (broadcastPending) return;
-  broadcastPending = true;
-
-  (async () => {
-    while (broadcastQueue) {
-      const toSend = broadcastQueue;
-      broadcastQueue = null;
-      try {
-        const res = await fetch(`${LOCAL_SERVER}/state`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(toSend),
-        });
-        if (res.ok) {
-          obsFlash();
-        } else {
-          setObsError(`Server error: ${res.status}`);
-        }
-      } catch(e) {
-        setObsError('Server offline');
-      }
-    }
-    broadcastPending = false;
-  })();
+  // Fire and forget — don't wait for response, don't debounce
+  fetch(`${LOCAL_SERVER}/state`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).then(res => {
+    if (res.ok) obsFlash();
+    else setObsError(`Server error: ${res.status}`);
+  }).catch(() => setObsError('Server offline'));
 }
 
 async function checkServer() {

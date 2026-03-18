@@ -1061,8 +1061,8 @@ function triggerSprintFlash(lap) {
   setTimeout(()=>el.classList.remove('show'), 3000);
 }
 
-// ── POLL FIREBASE every 1 second ──
-setInterval(poll, 1000);
+// ── POLL LOCAL SERVER every 250ms ──
+setInterval(poll, 250);
 poll();
 
 function esc(s) {
