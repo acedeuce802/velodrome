@@ -2021,6 +2021,10 @@ window.showSummary = function() {
 (function init(){
   showPage('page-schedule');
 
+  // Always reset server state on page load so stale overlay data is cleared
+  // Use seq:0 with a special reset flag so the server accepts it
+  fetch(`${LOCAL_SERVER}/reset`, { method: 'POST' }).catch(()=>{});
+
   const hasSavedNight    = !!localStorage.getItem(SAVE_KEY_NIGHT);
   const hasSavedSchedule = !!localStorage.getItem(SAVE_KEY_SCHEDULE);
 

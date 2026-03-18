@@ -100,6 +100,20 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._not_found()
 
+    def do_POST(self):
+        if self.path == '/reset':
+            with state_lock:
+                global state
+                state = {"view": "idle", "data": {}, "ts": 0, "seq": 0}
+            log("State reset — new session started")
+            self.send_response(200)
+            self._cors()
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        else:
+            self._not_found()
+
     def do_PUT(self):
         if self.path == '/state':
             length = int(self.headers.get('Content-Length', 0))
@@ -139,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         """Add CORS headers so Chrome and OBS can both reach us."""
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
     def _not_found(self, msg='Not found'):

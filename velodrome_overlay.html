@@ -861,9 +861,14 @@ async function poll() {
     const seqReset = incomingSeq >= 0 && incomingSeq < lastSeq;
 
     if (seqAdvanced || viewChanged || seqReset) {
-      if (seqReset && payload.view === 'idle' && hasEverRendered) {
+      // Only block idle on reset if we've rendered something — don't block race_active resets
+      if (seqReset && payload.view === 'idle' && hasEverRendered && incomingSeq !== 0) {
         lastSeq = incomingSeq;
         return;
+      }
+      // seq reset to exactly 0 = fresh session from race manager reload — always accept
+      if (incomingSeq === 0 && seqReset) {
+        hasEverRendered = false; // allow idle to show again for fresh session
       }
       lastSeq = incomingSeq;
       lastTs  = payload.ts || 0;
