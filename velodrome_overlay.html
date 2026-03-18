@@ -828,8 +828,10 @@ const TYPE_BADGE = {
 
 const ALL_PANELS = ['panel-idle','panel-race','panel-results','panel-schedule','panel-summary','panel-event-ticker'];
 let lastTs = 0;
+let lastSeq = -1;
 let pollFailCount = 0;
 let lastSuccessfulView = null;
+let hasEverRendered = false;
 
 // Polls the local Python server at localhost:7878
 const LOCAL_SERVER = 'http://localhost:7878';
@@ -840,29 +842,43 @@ async function poll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
 
-    // Reset fail count on any successful response
+    // Any successful response resets fail count
     pollFailCount = 0;
 
-    // Skip if no meaningful state yet (server just started)
     if (!payload || !payload.view) return;
 
-    // Always re-render if view changed, even if ts is same
+    const incomingSeq = payload.seq ?? -1;
     const viewChanged = payload.view !== lastSuccessfulView;
-    const tsChanged   = payload.ts && payload.ts !== lastTs;
 
-    if (tsChanged || viewChanged) {
-      if (payload.ts) lastTs = payload.ts;
+    // Render if:
+    // - seq went up (normal case)
+    // - view changed (transition between states)
+    // - seq went DOWN (server restarted, seq reset to 0)
+    const seqAdvanced = incomingSeq > lastSeq;
+    const seqReset    = incomingSeq >= 0 && incomingSeq < lastSeq && lastSeq > 10;
+
+    if (seqAdvanced || viewChanged || seqReset) {
+      // Don't wipe an active race display with a server-restart idle state
+      if (seqReset && payload.view === 'idle' && hasEverRendered) {
+        // Server restarted — keep showing last state, wait for race manager to resync
+        lastSeq = incomingSeq;
+        return;
+      }
+      lastSeq = incomingSeq;
+      lastTs  = payload.ts || 0;
       lastSuccessfulView = payload.view;
+      hasEverRendered = true;
       handleState(payload);
     }
   } catch(e) {
     pollFailCount++;
-    // Only show offline message after many consecutive failures (30 = ~7.5s)
-    // Never hide an active race overlay just because of a brief hiccup
-    if (pollFailCount >= 30) {
+    // Only show SERVER OFFLINE if we've never successfully rendered anything
+    // AND have had many consecutive failures — never wipe an active overlay
+    if (pollFailCount >= 30 && !hasEverRendered) {
       document.querySelector('#panel-idle .idle-box').textContent = 'SERVER OFFLINE';
       showPanels('panel-idle');
     }
+    // If we have rendered before, just silently keep showing last state
   }
 }
 
@@ -1064,7 +1080,8 @@ function renderSummary(d) {
 
 function renderIdle() {
   lastSuccessfulView = 'idle';
-  lastTs = 0; // reset so next broadcast always re-renders
+  lastSeq = -1;
+  lastTs = 0;
   showPanels('panel-idle');
 }
 

@@ -32,7 +32,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OVERLAY_FILE = os.path.join(SCRIPT_DIR, 'velodrome_overlay.html')
 
 # ── Shared state ──
-state = {"view": "idle", "data": {}, "ts": 0}
+state = {"view": "idle", "data": {}, "ts": 0, "seq": 0}
 state_lock = threading.Lock()
 request_count = 0
 
@@ -83,10 +83,12 @@ class Handler(BaseHTTPRequestHandler):
             with state_lock:
                 current_view = state.get('view', 'idle')
                 ts = state.get('ts', 0)
+                seq = state.get('seq', 0)
             body = json.dumps({
                 'status': 'online',
                 'view': current_view,
                 'last_update': ts,
+                'seq': seq,
                 'requests_served': request_count,
             }).encode()
             self.send_response(200)
@@ -106,9 +108,20 @@ class Handler(BaseHTTPRequestHandler):
                 new_state = json.loads(body)
                 with state_lock:
                     global state
+                    incoming_seq = new_state.get('seq', 0)
+                    current_seq  = state.get('seq', 0)
+                    if incoming_seq < current_seq:
+                        # Out-of-order write — discard silently
+                        self.send_response(200)
+                        self._cors()
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(b'{"ok":true,"discarded":true}')
+                        return
                     state = new_state
                 view = new_state.get('view', '?')
-                log(f"State updated → view: {view}")
+                seq  = new_state.get('seq', '?')
+                log(f"State updated → view: {view}  seq: {seq}")
                 self.send_response(200)
                 self._cors()
                 self.send_header('Content-Type', 'application/json')

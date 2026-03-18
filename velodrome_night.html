@@ -1401,13 +1401,14 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // Default port is 7878 — change here and in the server script if needed.
 const LOCAL_SERVER = 'http://localhost:7878';
 
-let broadcastInFlight = false;
+let broadcastSeq = 0;
 
 function broadcast(view, data) {
-  const payload = { view, data, ts: Date.now() };
+  broadcastSeq++;
+  const seq = broadcastSeq;
+  const payload = { view, data, ts: Date.now(), seq };
   try { localStorage.setItem('velotrack_overlay', JSON.stringify(payload)); } catch(e){}
 
-  // Fire and forget — don't wait for response, don't debounce
   fetch(`${LOCAL_SERVER}/state`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -1808,11 +1809,12 @@ function showRestorePrompt(hasSavedNight, hasSavedSchedule) {
 }
 
 function doRestoreNight() {
-  dismissRestore();
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY_NIGHT));
-    // Also restore schedule in background
     const sched = JSON.parse(localStorage.getItem(SAVE_KEY_SCHEDULE));
+    // Clear banner and saved keys AFTER reading
+    document.getElementById('restore-banner')?.remove();
+    clearSavedNight();
     if (sched) {
       scheduleRaces = sched.races || [];
       raceIdCounter = sched.raceIdCounter || scheduleRaces.length;
@@ -1820,26 +1822,32 @@ function doRestoreNight() {
     restoreNight(saved);
   } catch(e) {
     console.error('Restore failed:', e);
-    alert('Could not restore — starting fresh.');
-    dismissRestore();
+    document.getElementById('restore-banner')?.remove();
+    clearSavedNight();
+    try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e2) {}
+    loadDefaultSchedule();
   }
 }
 
 function doRestoreSchedule() {
-  dismissRestore();
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY_SCHEDULE));
+    document.getElementById('restore-banner')?.remove();
+    // Don't clear schedule key — restoreSchedule re-saves it
     restoreSchedule(saved);
   } catch(e) {
     console.error('Restore failed:', e);
+    document.getElementById('restore-banner')?.remove();
+    try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e2) {}
+    loadDefaultSchedule();
   }
 }
 
 function dismissRestore() {
+  // User chose "start fresh" — clear everything and load defaults
   clearSavedNight();
   try { localStorage.removeItem(SAVE_KEY_SCHEDULE); } catch(e) {}
   document.getElementById('restore-banner')?.remove();
-  // Load default schedule if nothing is showing
   if (scheduleRaces.length === 0) loadDefaultSchedule();
 }
 
