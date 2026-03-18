@@ -829,23 +829,37 @@ const TYPE_BADGE = {
 const ALL_PANELS = ['panel-idle','panel-race','panel-results','panel-schedule','panel-summary','panel-event-ticker'];
 let lastTs = 0;
 let pollFailCount = 0;
+let lastSuccessfulView = null;
 
 // Polls the local Python server at localhost:7878
 const LOCAL_SERVER = 'http://localhost:7878';
 
 async function poll() {
   try {
-    const res = await fetch(`${LOCAL_SERVER}/state`);
+    const res = await fetch(`${LOCAL_SERVER}/state`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
+
+    // Reset fail count on any successful response
     pollFailCount = 0;
-    if (payload && payload.ts && payload.ts !== lastTs) {
-      lastTs = payload.ts;
+
+    // Skip if no meaningful state yet (server just started)
+    if (!payload || !payload.view) return;
+
+    // Always re-render if view changed, even if ts is same
+    const viewChanged = payload.view !== lastSuccessfulView;
+    const tsChanged   = payload.ts && payload.ts !== lastTs;
+
+    if (tsChanged || viewChanged) {
+      if (payload.ts) lastTs = payload.ts;
+      lastSuccessfulView = payload.view;
       handleState(payload);
     }
   } catch(e) {
     pollFailCount++;
-    if (pollFailCount >= 5) {
+    // Only show offline message after many consecutive failures (30 = ~7.5s)
+    // Never hide an active race overlay just because of a brief hiccup
+    if (pollFailCount >= 30) {
       document.querySelector('#panel-idle .idle-box').textContent = 'SERVER OFFLINE';
       showPanels('panel-idle');
     }
@@ -859,7 +873,8 @@ function handleState(payload) {
   else if (view === 'race_results')  renderResults(data);
   else if (view === 'schedule_next') renderSchedule(data);
   else if (view === 'summary')       renderSummary(data);
-  else                               renderIdle();
+  else if (view === 'idle')          renderIdle();
+  // Unknown views: do nothing, keep current display
 }
 
 function showPanels(...ids) {
@@ -1048,6 +1063,8 @@ function renderSummary(d) {
 }
 
 function renderIdle() {
+  lastSuccessfulView = 'idle';
+  lastTs = 0; // reset so next broadcast always re-renders
   showPanels('panel-idle');
 }
 
