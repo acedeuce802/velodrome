@@ -903,7 +903,9 @@ function showPanels(...ids) {
   ALL_PANELS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const isHidden = el.style.display === 'none';
+    // Use getComputedStyle to check actual visibility, not just inline style
+    const computedDisplay = window.getComputedStyle(el).display;
+    const isHidden = computedDisplay === 'none';
     const isLeaving = el.classList.contains('leaving');
 
     if (ids.includes(id)) {
@@ -914,7 +916,6 @@ function showPanels(...ids) {
         void el.offsetWidth;
         el.style.animation = '';
       }
-      // Already visible and not leaving — leave it alone
     } else {
       if (!isHidden && !isLeaving) {
         el.classList.add('leaving');
