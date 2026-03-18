@@ -1632,16 +1632,33 @@ function overlayGoLive() {
 }
 
 // Prevent Chrome from throttling this tab when it's in the background.
-// Without this, broadcasts slow to ~1/minute when the tab is inactive.
 if (navigator.locks) {
   navigator.locks.request('velotrack_active', { mode: 'shared' }, () => {
-    return new Promise(() => {}); // hold lock forever
+    return new Promise(() => {});
   });
 }
 
-// Heartbeat — re-broadcast current state every 5s as a safety net
+// Heartbeat — re-broadcast current state every 5s as a safety net.
+// Tracks what was last broadcast so results/summary are never overwritten by a stale race_active.
+let lastBroadcastView = 'idle';
+let lastBroadcastResults = null;
+
+const _origBroadcast = broadcast;
+window.broadcast = function(view, data) {
+  lastBroadcastView = view;
+  if (view === 'race_results') lastBroadcastResults = { view, data };
+  if (view === 'summary')      lastBroadcastResults = { view, data };
+  if (view === 'race_active')  lastBroadcastResults = null;
+  _origBroadcast(view, data);
+};
+
 setInterval(() => {
-  if (activeRace) broadcastCurrentRaceState();
+  if (lastBroadcastResults) {
+    // Re-send results or summary — don't let race_active overwrite it
+    _origBroadcast(lastBroadcastResults.view, lastBroadcastResults.data);
+  } else if (activeRace && lastBroadcastView === 'race_active') {
+    broadcastCurrentRaceState();
+  }
 }, 5000);
 
 // ══════════════════════════════════════════════════════
