@@ -730,6 +730,7 @@ html, body {
 <!-- Idle state -->
 <div class="panel" id="panel-idle" style="display:block;">
   <div class="idle-box">WAITING FOR RACE DATA…</div>
+  <div id="overlay-debug" style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(0,229,255,0.3);text-align:center;letter-spacing:2px;"></div>
 </div>
 
 <!-- Live race info + lap counter (bottom-left) -->
@@ -858,9 +859,7 @@ async function poll() {
     const seqReset    = incomingSeq >= 0 && incomingSeq < lastSeq && lastSeq > 10;
 
     if (seqAdvanced || viewChanged || seqReset) {
-      // Don't wipe an active race display with a server-restart idle state
       if (seqReset && payload.view === 'idle' && hasEverRendered) {
-        // Server restarted — keep showing last state, wait for race manager to resync
         lastSeq = incomingSeq;
         return;
       }
@@ -868,7 +867,13 @@ async function poll() {
       lastTs  = payload.ts || 0;
       lastSuccessfulView = payload.view;
       hasEverRendered = true;
+      // Update debug label
+      const dbg = document.getElementById('overlay-debug');
+      if (dbg) dbg.textContent = `seq:${incomingSeq} view:${payload.view} ${new Date().toLocaleTimeString()}`;
       handleState(payload);
+    } else {
+      const dbg = document.getElementById('overlay-debug');
+      if (dbg) dbg.textContent = `seq:${incomingSeq} (no change) ${new Date().toLocaleTimeString()}`;
     }
   } catch(e) {
     pollFailCount++;
@@ -898,15 +903,15 @@ function showPanels(...ids) {
     const el = document.getElementById(id);
     if (!el) return;
     if (ids.includes(id)) {
-      if (el.style.display === 'none' || !el.style.display) {
-        el.style.display = 'block';
-        el.classList.remove('leaving');
-        void el.offsetWidth;
-        el.style.animation = 'none';
-        void el.offsetWidth;
-        el.style.animation = '';
-      }
+      // Always force show — clear any leaving state
+      el.classList.remove('leaving');
+      el.style.display = 'block';
+      // Re-trigger slide-in animation
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
     } else {
+      // Hide with fade-out animation
       if (el.style.display !== 'none') {
         el.classList.add('leaving');
         setTimeout(() => {
