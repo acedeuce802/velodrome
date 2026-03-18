@@ -190,6 +190,7 @@ label{font-size:0.78rem;color:var(--text-dim);letter-spacing:2px;text-transform:
 .lb-stat.pts .val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);}
 .lb-stat .lbl{font-size:0.6rem;color:var(--text-dim);letter-spacing:2px;}
 @keyframes lapFlash{0%{background:rgba(0,229,255,.1);}100%{background:transparent;}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
 .lb-row.flash{animation:lapFlash .4s ease;}
 
 /* sprint history */
@@ -502,7 +503,25 @@ label{font-size:0.78rem;color:var(--text-dim);letter-spacing:2px;text-transform:
     <div id="results-table-body"></div>
   </div>
   <div style="display:flex;justify-content:flex-end;gap:10px;">
+    <button class="btn btn-secondary btn-md" id="show-schedule-btn" onclick="showScheduleBetween()" style="display:none;">SHOW SCHEDULE</button>
     <button class="btn btn-primary btn-lg" id="next-race-btn" onclick="proceedToNextRace()">NEXT RACE →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: SCHEDULE BETWEEN RACES
+══════════════════════════════════════ -->
+<div id="page-schedule-between" style="display:none;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="section-title">RACE SCHEDULE</div>
+      <div class="section-sub" id="schedule-between-sub"></div>
+    </div>
+    <button class="btn btn-primary btn-lg" id="schedule-next-race-btn" onclick="proceedToNextRace()">NEXT RACE →</button>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;">
+    <div id="schedule-between-list"></div>
   </div>
 </div>
 
@@ -1263,10 +1282,61 @@ function showResults(raceConfig, finishData, isMadison=false) {
     </div>`;
   }).join('');
 
-  // Next race button label
+  // Next race button label + show schedule button
   const isLast = nightState.currentIdx >= nightState.races.length-1;
   const nextBtn = document.getElementById('next-race-btn');
+  const schedBtn = document.getElementById('show-schedule-btn');
   nextBtn.textContent = isLast ? 'VIEW SUMMARY →' : 'NEXT RACE →';
+  schedBtn.style.display = isLast ? 'none' : 'inline-flex';
+}
+
+function showScheduleBetween() {
+  const idx = nightState.currentIdx;
+  const nextIdx = idx + 1;
+  const nextRace = nightState.races[nextIdx];
+
+  document.getElementById('schedule-between-sub').textContent =
+    `Up next: Event ${nextIdx+1} of ${nightState.races.length} · ${nextRace.group} – ${TYPE_LABELS[nextRace.type]}`;
+
+  // Build schedule list
+  const list = document.getElementById('schedule-between-list');
+  list.innerHTML = nightState.races.map((r, i) => {
+    const isDone    = i < nextIdx;
+    const isCurrent = i === nextIdx;
+    const posLabel  = ['1ST','2ND','3RD','4TH','5TH','6TH','7TH','8TH','9TH','10TH'][i] || `${i+1}`;
+
+    let statusHtml = '';
+    if (isDone) {
+      const res = nightState.raceResults[i];
+      const winner = res?.finishData?.[0];
+      statusHtml = winner
+        ? `<span style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--success);">✓ ${escHtml(winner.name)}</span>`
+        : `<span style="color:var(--text-dim);font-size:0.7rem;font-family:'Share Tech Mono',monospace;">✓ DONE</span>`;
+    } else if (isCurrent) {
+      statusHtml = `<span style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--accent2);animation:blink 1s infinite;">▶ UP NEXT</span>`;
+    } else {
+      statusHtml = `<span style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);">—</span>`;
+    }
+
+    return `<div style="
+      display:flex;align-items:center;gap:12px;padding:12px 20px;
+      border-bottom:1px solid var(--border);
+      background:${isCurrent ? 'rgba(255,107,0,0.06)' : isDone ? 'rgba(0,0,0,0.2)' : 'transparent'};
+      opacity:${isDone ? '0.5' : '1'};
+      position:relative;
+    ">
+      ${isCurrent ? `<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2);"></div>` : ''}
+      ${isDone ? `<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--success);"></div>` : ''}
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:${isCurrent?'var(--accent2)':isDone?'var(--text-dim)':'var(--text-dim)'};width:28px;flex-shrink:0;">${i+1}</span>
+      <span class="race-type-badge ${TYPE_BADGE[r.type]}">${TYPE_LABELS[r.type]}</span>
+      <span style="flex:1;font-size:0.95rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;">${escHtml(r.group)}</span>
+      ${statusHtml}
+    </div>`;
+  }).join('');
+
+  // Broadcast schedule to overlay
+  broadcastSchedule();
+  showPage('page-schedule-between');
 }
 
 function proceedToNextRace() {
@@ -1365,7 +1435,7 @@ document.getElementById('confirm-ok-btn').onclick = ()=>{ closeConfirm(); if(con
 // PAGE SWITCHING
 // ══════════════════════════════════════════════════════
 function showPage(id) {
-  ['page-schedule','page-race','page-results','page-summary'].forEach(p=>{
+  ['page-schedule','page-race','page-results','page-schedule-between','page-summary'].forEach(p=>{
     document.getElementById(p).style.display = p===id ? 'block' : 'none';
   });
 }
@@ -1589,19 +1659,13 @@ window.madisonAdvance  = function()    { _origMadisonAdvance();  broadcastCurren
 window.unknownAdvance  = function()    { _origUnknownAdvance();  broadcastCurrentRaceState(); saveNightState(); };
 window.eliminateRider  = function(ri)  { _origEliminateRider(ri); broadcastCurrentRaceState(); saveNightState(); };
 
-// Wrap proceedToNextRace to broadcast schedule view between races
+// Wrap proceedToNextRace to broadcast when moving to next race
 const _origProceed = proceedToNextRace;
 window.proceedToNextRace = function() {
-  const isLast = nightState.currentIdx >= nightState.races.length - 1;
-  if (isLast) {
-    // Go straight to summary — no schedule flash needed
-    _origProceed();
-  } else {
-    broadcastSchedule();
-    setTimeout(() => {
-      _origProceed();
-      setTimeout(broadcastCurrentRaceState, 100);
-    }, 2500);
+  _origProceed();
+  // If we just moved to a new race, broadcast it
+  if (nightState.currentIdx < nightState.races.length) {
+    setTimeout(broadcastCurrentRaceState, 200);
   }
 };
 
